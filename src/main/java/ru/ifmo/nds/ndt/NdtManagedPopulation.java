@@ -61,17 +61,10 @@ public class NdtManagedPopulation implements IManagedPopulation {
                 final INode level = ndLayers.get(i);
                 final List<IIndividual> nextAddends = new ArrayList<>();
                 for (IIndividual individual : addends) {
-                    final List<IIndividual> dominated = level.getDominatedMembers(individual, false);
-                    if (dominated.size() == level.size()) {
-                        final List<IIndividual> individuals = new ArrayList<>();
-                        individuals.add(individual);
-                        final LeafNode node = new LeafNode(individuals, dominationComparator, ndtSettings, 0);
-                        ndLayers.add(i, node);
-                    } else {
-                        level.getDominatedMembers(individual, true);
-                        ndLayers.set(i, level.insert(individual));
-                        nextAddends.addAll(dominated);
-                    }
+                    final List<IIndividual> dominated = level.getDominatedMembers(individual, true);
+                    level.getDominatedMembers(individual, true);
+                    ndLayers.set(i, level.insert(individual));
+                    nextAddends.addAll(dominated);
                 }
                 addends = nextAddends;
                 i++;
