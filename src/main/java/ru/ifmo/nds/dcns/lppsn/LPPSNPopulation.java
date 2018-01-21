@@ -112,7 +112,9 @@ public class LPPSNPopulation implements IManagedPopulation {
 
                 final INonDominationLevel level = nonDominationLevels.get(i);
                 prevSize = level.getMembers().size();
-                addends = level.addMembers(addends);
+                final INonDominationLevel.MemberAdditionResult memberAdditionResult = level.addMembers(addends);
+                nonDominationLevels.set(i, memberAdditionResult.getModifiedLevel());
+                addends = memberAdditionResult.getEvictedMembers();
                 i++;
             }
             if (!addends.isEmpty()) {
@@ -124,45 +126,6 @@ public class LPPSNPopulation implements IManagedPopulation {
 
         ++size;
         return rank;
-    }
-
-    //TODO: create beautiful interface for future tests
-    public RankedPopulation<IIndividual> toRankedPopulation() {
-        final int popSize = nonDominationLevels.stream().mapToInt(level -> level.getMembers().size()).sum();
-
-        final IIndividual[] pop;
-        final int[] sortedRanks;
-        if (popSize > 0) {
-            //noinspection unchecked
-            pop = new IIndividual[popSize];
-            final int[] ranks = new int[popSize];
-            int j = 0;
-            for (int i = 0; i < nonDominationLevels.size(); ++i) {
-                for (IIndividual d : nonDominationLevels.get(i).getMembers()) {
-                    pop[j] = d;
-                    ranks[j] = i;
-                    j++;
-                }
-            }
-
-            sortedRanks = RankedIndividual.sortRanksForLexSortedPopulation(ranks, pop, IIndividual::getObjectives);
-
-            Arrays.sort(pop, (o1, o2) -> {
-                final double[] o1Obj = o1.getObjectives();
-                final double[] o2Obj = o2.getObjectives();
-                for (int i = 0; i < o1Obj.length; ++i) {
-                    if (o1Obj[i] < o2Obj[i])
-                        return -1;
-                    else if (o1Obj[i] > o2Obj[i])
-                        return 1;
-                }
-                return 0;
-            });
-        } else {
-            pop = null;
-            sortedRanks = null;
-        }
-        return new RankedPopulation<>(pop, sortedRanks);
     }
 
     /**

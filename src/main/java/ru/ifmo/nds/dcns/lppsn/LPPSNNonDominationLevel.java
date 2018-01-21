@@ -36,7 +36,7 @@ public class LPPSNNonDominationLevel implements INonDominationLevel {
     }
 
     @Override
-    public ArrayList<IIndividual> addMembers(@Nonnull List<IIndividual> addends) {
+    public MemberAdditionResult addMembers(@Nonnull List<IIndividual> addends) {
         final int[] ranks = new int[members.size()];
         final RankedPopulation<IIndividual> rp = sorter.addRankedMembers(members, ranks, addends, 0);
         final ArrayList<IIndividual> currLevel = new ArrayList<>(ranks.length + addends.size());
@@ -48,7 +48,7 @@ public class LPPSNNonDominationLevel implements INonDominationLevel {
                 nextLevel.add(rp.getPop()[i]);
         }
         members = currLevel;
-        return nextLevel;
+        return new MemberAdditionResult(nextLevel, this);
     }
 
     @Override

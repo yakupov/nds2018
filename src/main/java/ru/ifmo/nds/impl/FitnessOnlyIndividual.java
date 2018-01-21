@@ -23,9 +23,7 @@ public class FitnessOnlyIndividual implements IIndividual {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         FitnessOnlyIndividual that = (FitnessOnlyIndividual) o;
-
         return Arrays.equals(fitness, that.fitness);
     }
 
@@ -36,7 +34,6 @@ public class FitnessOnlyIndividual implements IIndividual {
 
     @Override
     public String toString() {
-        return "FitnessOnlyIndividual{" + "fitness=" + Arrays.toString(fitness) +
-                '}';
+        return Arrays.toString(fitness);
     }
 }

@@ -7,6 +7,24 @@ import java.util.List;
  * Non-domination level
  */
 public interface INonDominationLevel {
+    class MemberAdditionResult {
+        private final List<IIndividual> evicted;
+        private final INonDominationLevel modifiedLevel;
+
+        public MemberAdditionResult(List<IIndividual> evicted, INonDominationLevel modifiedLevel) {
+            this.evicted = evicted;
+            this.modifiedLevel = modifiedLevel;
+        }
+
+        public List<IIndividual> getEvictedMembers() {
+            return evicted;
+        }
+
+        public INonDominationLevel getModifiedLevel() {
+            return modifiedLevel;
+        }
+    }
+
     /**
      * @return Lexicographically sorted members of this layer
      */
@@ -18,7 +36,7 @@ public interface INonDominationLevel {
      * @param addends New points
      * @return A set of evicted points that should be moved to the next level
      */
-    List<IIndividual> addMembers(@Nonnull List<IIndividual> addends);
+    MemberAdditionResult addMembers(@Nonnull List<IIndividual> addends);
 
     /**
      * @return true if {@code point} is dominated by any member of this layer

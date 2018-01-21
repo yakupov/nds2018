@@ -4,7 +4,7 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import ru.ifmo.nds.IIndividual;
-import ru.ifmo.nds.dcns.lppsn.LPPSNPopulation;
+import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.dcns.sorter.PPSN2014;
 import ru.ifmo.nds.impl.FitnessOnlyIndividual;
 import ru.itmo.nds.util.RankedPopulation;
@@ -15,8 +15,8 @@ import java.util.Random;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-public class LayersIncPPSNCorrectnessTest {
-    private final PPSN2014 ppsn2014 = new PPSN2014();
+public abstract class ManagedPopulationCorrectnessTest {
+    abstract IManagedPopulation constructPopulation(int dimensionsCount);
 
     @Test
     public void test1() {
@@ -29,7 +29,7 @@ public class LayersIncPPSNCorrectnessTest {
 
         final int[] ranks = new int[]{0, 1, 0, 1, 1, 1, 2, 1, 0, 2, 2, 0, 3, 3};
 
-        final LPPSNPopulation pop = new LPPSNPopulation();
+        final IManagedPopulation pop = constructPopulation(3);
 
         final IIndividual[] testData = new IIndividual[testDataArr.length];
         for (int i = 0; i < testData.length; ++i) {
@@ -182,14 +182,21 @@ public class LayersIncPPSNCorrectnessTest {
         for (int i = 0; i < testData.length; ++i) {
             testData[i] = new FitnessOnlyIndividual(testDataArr[i]);
         }
+        final PPSN2014 ppsn2014 = new PPSN2014();
         final int[] ranks = ppsn2014.performNds(testData);
 
-        final LPPSNPopulation pop = new LPPSNPopulation();
+        final IManagedPopulation pop = constructPopulation(testDataArr[0].length);
         for (IIndividual individual: testData) {
             pop.addIndividual(individual);
         }
 
         final RankedPopulation rp = pop.toRankedPopulation();
+
+        //System.out.println(Arrays.toString(testData));
+        //System.out.println(Arrays.toString(rp.getPop()));
+
+        //System.out.println(Arrays.toString(ranks));
+        //System.out.println(Arrays.toString(rp.getRanks()));
 
         Assert.assertArrayEquals(testData, rp.getPop());
         Assert.assertArrayEquals(ranks, rp.getRanks());
@@ -197,7 +204,7 @@ public class LayersIncPPSNCorrectnessTest {
 
     @Test
     public void test5() {
-        final LPPSNPopulation pop = new LPPSNPopulation();
+        final IManagedPopulation pop = constructPopulation(3);
 
         pop.addIndividual(new FitnessOnlyIndividual(new double[]{0.1669424402868558, 0.41123196219828895, 17.98980401569634}));
         assertEquals(1, pop.getLevels().size());
