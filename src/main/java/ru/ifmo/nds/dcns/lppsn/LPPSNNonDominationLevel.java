@@ -20,7 +20,7 @@ public class LPPSNNonDominationLevel implements INonDominationLevel {
     @Nonnull
     private List<IIndividual> members;
 
-    LPPSNNonDominationLevel(PPSN2014 sorter) {
+    public LPPSNNonDominationLevel(PPSN2014 sorter) {
         this(sorter, new ArrayList<>());
     }
 
