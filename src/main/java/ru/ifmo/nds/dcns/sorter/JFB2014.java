@@ -4,6 +4,7 @@ import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.util.QuickSelect;
 import ru.itmo.nds.util.RankedPopulation;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
@@ -24,21 +25,22 @@ import static ru.itmo.nds.util.ComparisonUtils.dominates;
  * }
  */
 @SuppressWarnings({"UnnecessaryReturnStatement", "Convert2streamapi"})
-public class PPSN2014 { //TODO: extract interface
+@ThreadSafe
+public class JFB2014 { //TODO: extract interface
     @SuppressWarnings("WeakerAccess")
-    public static final String ENABLE_PPSN_TRACE_PROPERTY = "ru.itmo.ppsn.trace_to_stdout";
+    public static final String JFB_ENABLE_TRACE_PROPERTY = "ru.itmo.jfb.trace_to_stdout";
 
     @SuppressWarnings("WeakerAccess")
-    public static final String ENABLE_PPSN_DEBUG_PROPERTY = "ru.itmo.ppsn.debug_on";
+    public static final String JFB_ENABLE_DEBUG_PROPERTY = "ru.itmo.jfb.debug_on";
 
     private final boolean traceToStdout;
     private final boolean debugEnabled;
 
     private final QuickSelect quickSelect = new QuickSelect();
 
-    public PPSN2014() {
-        traceToStdout = System.getProperty(ENABLE_PPSN_TRACE_PROPERTY) != null;
-        debugEnabled = System.getProperty(ENABLE_PPSN_DEBUG_PROPERTY) != null;
+    public JFB2014() {
+        traceToStdout = System.getProperty(JFB_ENABLE_TRACE_PROPERTY) != null;
+        debugEnabled = System.getProperty(JFB_ENABLE_DEBUG_PROPERTY) != null;
     }
 
     /**
@@ -164,7 +166,9 @@ public class PPSN2014 { //TODO: extract interface
      *                 relationships with the members of {@code pop}
      * @return Updated population
      */
-    public RankedPopulation<IIndividual> addRankedMembers(List<IIndividual> pop, int[] ranks, List<IIndividual> addends,
+    public RankedPopulation<IIndividual> addRankedMembers(List<IIndividual> pop,
+                                                          int[] ranks,
+                                                          List<IIndividual> addends,
                                                           @SuppressWarnings("SameParameterValue") int rankHint) { //TODO: UT
         final double[] ultimateAddend = new double[addends.get(0).getObjectives().length];
         for (int i = 0; i < ultimateAddend.length; ++i) {
@@ -216,7 +220,11 @@ public class PPSN2014 { //TODO: extract interface
      * @param workingSet Indices of the population members that should be analyzed during the current run. Must be sorted.
      * @param level      Recursion level (used for logging)
      */
-    private void ndHelperA(IIndividual[] pop, int[] ranks, int k, List<Integer> workingSet, int level) {
+    private void ndHelperA(IIndividual[] pop,
+                           int[] ranks,
+                           int k,
+                           List<Integer> workingSet,
+                           int level) {
         if (debugEnabled) {
             assert (pop.length == ranks.length);
             assert (workingSet == null || workingSet.size() <= pop.length);
@@ -323,7 +331,10 @@ public class PPSN2014 { //TODO: extract interface
      * @param ranks          Mapping from point indices to point ranks
      * @param currRank       Rank of the next point to be added to the staircase
      */
-    private void cleanupTSet(NavigableSet<IndexedIndividual> secondCoordSet, Map<Integer, Integer> rankToIndex, int[] ranks, int currRank) {
+    private void cleanupTSet(NavigableSet<IndexedIndividual> secondCoordSet,
+                             Map<Integer, Integer> rankToIndex,
+                             int[] ranks,
+                             int currRank) {
         for (Iterator<IndexedIndividual> it = secondCoordSet.iterator(); it.hasNext(); ) {
             final IndexedIndividual individual = it.next();
             if (ranks[individual.getIndex()] <= currRank) {
@@ -346,7 +357,12 @@ public class PPSN2014 { //TODO: extract interface
      *
      * @return whether at least one individual has changed its rank
      */
-    private boolean ndHelperB(IIndividual[] pop, int[] ranks, int k, List<Integer> lSet, List<Integer> hSet, int level) {
+    private boolean ndHelperB(IIndividual[] pop,
+                              int[] ranks,
+                              int k,
+                              List<Integer> lSet,
+                              List<Integer> hSet,
+                              int level) {
         if (debugEnabled) {
             assert (pop.length == ranks.length);
         }
@@ -432,7 +448,10 @@ public class PPSN2014 { //TODO: extract interface
      *
      * @return whether at least one individual has changed its rank
      */
-    boolean sweepB(IIndividual[] pop, int[] ranks, List<Integer> lSet, List<Integer> hSet) {
+    boolean sweepB(IIndividual[] pop,
+                   int[] ranks,
+                   List<Integer> lSet,
+                   List<Integer> hSet) {
         if (debugEnabled) {
             assert (pop.length == ranks.length);
         }
@@ -479,7 +498,7 @@ public class PPSN2014 { //TODO: extract interface
     /**
      * Split the population into three parts around the median
      *
-     * @param pop         LPPSNPopulation
+     * @param pop         JFBYPopulation
      * @param k           Objective to the population split on (array index!)
      * @param medianValue Value of the {@code k}-th objective to split the population on
      * @param workingSet  input
@@ -530,7 +549,8 @@ public class PPSN2014 { //TODO: extract interface
         return 0;
     }
 
-    private List<Integer> sortedMerge(List<Integer> l1, List<Integer> l2) {
+    private List<Integer> sortedMerge(List<Integer> l1,
+                                      List<Integer> l2) {
         final List<Integer> res = new ArrayList<>(l1.size() + l2.size());
         int l1Index = 0;
         int l2Index = 0;

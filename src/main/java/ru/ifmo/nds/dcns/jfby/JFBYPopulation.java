@@ -1,33 +1,33 @@
-package ru.ifmo.nds.dcns.lppsn;
+package ru.ifmo.nds.dcns.jfby;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
-import ru.ifmo.nds.dcns.sorter.IncrementalPPSN;
-import ru.ifmo.nds.dcns.sorter.PPSN2014;
-import ru.itmo.nds.util.RankedIndividual;
-import ru.itmo.nds.util.RankedPopulation;
+import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
+import ru.ifmo.nds.dcns.sorter.JFB2014;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.NotThreadSafe;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class LPPSNPopulation implements IManagedPopulation {
+@NotThreadSafe
+public class JFBYPopulation implements IManagedPopulation {
     private final List<INonDominationLevel> nonDominationLevels = new ArrayList<>();
     private final Random random = new Random(System.nanoTime());
-    private final PPSN2014 sorter;
+    private final JFB2014 sorter;
 
     private int lastNumberOfMovements = 0;
     private int lastSumOfMovements = 0;
     private int size = 0;
 
-    public LPPSNPopulation() {
-        this(new IncrementalPPSN());
+    public JFBYPopulation() {
+        this(new IncrementalJFB());
     }
 
     @SuppressWarnings("WeakerAccess")
-    public LPPSNPopulation(PPSN2014 sorter) {
+    public JFBYPopulation(JFB2014 sorter) {
         this.sorter = sorter;
     }
 
@@ -92,7 +92,7 @@ public class LPPSNPopulation implements IManagedPopulation {
 
         final int rank = determineRank(addend);
         if (rank >= nonDominationLevels.size()) {
-            final LPPSNNonDominationLevel level = new LPPSNNonDominationLevel(sorter);
+            final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter);
             level.getMembers().add(addend);
             nonDominationLevels.add(level);
         } else {
@@ -104,7 +104,7 @@ public class LPPSNPopulation implements IManagedPopulation {
                 lastSumOfMovements += addends.size();
 
                 if (prevSize == addends.size()) { //Whole level was pushed
-                    final LPPSNNonDominationLevel level = new LPPSNNonDominationLevel(sorter);
+                    final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter);
                     level.getMembers().addAll(addends);
                     nonDominationLevels.add(i, level);
                     return rank;
@@ -118,7 +118,7 @@ public class LPPSNPopulation implements IManagedPopulation {
                 i++;
             }
             if (!addends.isEmpty()) {
-                final LPPSNNonDominationLevel level = new LPPSNNonDominationLevel(sorter);
+                final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter);
                 level.getMembers().addAll(addends);
                 nonDominationLevels.add(level);
             }
@@ -133,8 +133,8 @@ public class LPPSNPopulation implements IManagedPopulation {
      */
     @SuppressWarnings("MethodDoesntCallSuperMethod")
     @Override
-    public LPPSNPopulation clone() {
-        final LPPSNPopulation copy = new LPPSNPopulation(sorter);
+    public JFBYPopulation clone() {
+        final JFBYPopulation copy = new JFBYPopulation(sorter);
         for (INonDominationLevel level : nonDominationLevels) {
             copy.getLevels().add(level.copy());
         }
@@ -143,7 +143,7 @@ public class LPPSNPopulation implements IManagedPopulation {
 
     @Override
     public String toString() {
-        return "LPPSNPopulation{" + "nonDominationLevels=" + nonDominationLevels +
+        return "JFBYPopulation{" + "nonDominationLevels=" + nonDominationLevels +
                 ", lastNumberOfMovements=" + lastNumberOfMovements +
                 ", lastSumOfMovements=" + lastSumOfMovements +
                 '}';

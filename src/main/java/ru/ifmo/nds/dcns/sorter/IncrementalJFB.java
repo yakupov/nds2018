@@ -2,6 +2,7 @@ package ru.ifmo.nds.dcns.sorter;
 
 import ru.ifmo.nds.IIndividual;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,8 @@ import static ru.itmo.nds.util.ComparisonUtils.dominates;
 /**
  * Can perform NDS only on a sorted population with one new point (or a contiguous set of points with the same rank)
  */
-public class IncrementalPPSN extends PPSN2014 {
+@ThreadSafe
+public class IncrementalJFB extends JFB2014 {
     @Override
     public int[] performNds(IIndividual[] population) {
         throw new UnsupportedOperationException("Can't perform non-incremental sorting");

@@ -5,7 +5,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
-import ru.ifmo.nds.dcns.sorter.PPSN2014;
+import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.FitnessOnlyIndividual;
 import ru.itmo.nds.util.RankedPopulation;
 
@@ -182,8 +182,8 @@ public abstract class ManagedPopulationCorrectnessTest {
         for (int i = 0; i < testData.length; ++i) {
             testData[i] = new FitnessOnlyIndividual(testDataArr[i]);
         }
-        final PPSN2014 ppsn2014 = new PPSN2014();
-        final int[] ranks = ppsn2014.performNds(testData);
+        final JFB2014 jfb2014 = new JFB2014();
+        final int[] ranks = jfb2014.performNds(testData);
 
         final IManagedPopulation pop = constructPopulation(testDataArr[0].length);
         for (IIndividual individual: testData) {

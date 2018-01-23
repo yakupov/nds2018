@@ -1,9 +1,12 @@
 package ru.ifmo.nds.util;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 /**
  * QS using Median of Medians pivot selection strategy
  */
 @SuppressWarnings("unused")
+@ThreadSafe
 public class MedianOfMediansQS extends QuickSelect {
     @Override
     int calcPivot(final double[] values, final int from, final int to) {

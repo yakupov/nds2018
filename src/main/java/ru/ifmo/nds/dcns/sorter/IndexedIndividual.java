@@ -1,12 +1,14 @@
 package ru.ifmo.nds.dcns.sorter;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Arrays;
 
 /**
- * Utility data structure for sweeps in PPSN.
+ * Utility data structure for sweeps in JFB.
  * In contains individuals' fitnesses and its index in the population array.
  */
+@ThreadSafe
 class IndexedIndividual implements Comparable<IndexedIndividual> {
     private final double[] fitness;
     private final int index;

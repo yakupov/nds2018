@@ -1,16 +1,16 @@
 package ru.ifmo.nds.util;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Simple QS algorithm implementation
  */
+@ThreadSafe
 public class QuickSelect {
-    private final Random random = new Random();
-    {
-        random.setSeed(System.nanoTime());
-    }
+    private final Random random = ThreadLocalRandom.current();
 
     public double getMedian(double[] values) {
         Objects.requireNonNull(values);

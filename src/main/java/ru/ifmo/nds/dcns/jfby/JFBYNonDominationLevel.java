@@ -1,11 +1,12 @@
-package ru.ifmo.nds.dcns.lppsn;
+package ru.ifmo.nds.dcns.jfby;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
-import ru.ifmo.nds.dcns.sorter.PPSN2014;
+import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,18 +14,19 @@ import java.util.stream.Collectors;
 
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
 
-public class LPPSNNonDominationLevel implements INonDominationLevel {
+@NotThreadSafe
+public class JFBYNonDominationLevel implements INonDominationLevel {
     @Nonnull
-    private final PPSN2014 sorter;
+    private final JFB2014 sorter;
 
     @Nonnull
     private List<IIndividual> members;
 
-    public LPPSNNonDominationLevel(PPSN2014 sorter) {
+    public JFBYNonDominationLevel(JFB2014 sorter) {
         this(sorter, new ArrayList<>());
     }
 
-    private LPPSNNonDominationLevel(@Nonnull PPSN2014 sorter, @Nonnull List<IIndividual> members) {
+    private JFBYNonDominationLevel(@Nonnull JFB2014 sorter, @Nonnull List<IIndividual> members) {
         this.sorter = sorter;
         this.members = members;
     }
@@ -65,10 +67,10 @@ public class LPPSNNonDominationLevel implements INonDominationLevel {
     }
 
     @Override
-    public LPPSNNonDominationLevel copy() {
+    public JFBYNonDominationLevel copy() {
         final List<IIndividual> newMembers = new ArrayList<>(members.size());
         newMembers.addAll(members);
-        return new LPPSNNonDominationLevel(sorter, newMembers);
+        return new JFBYNonDominationLevel(sorter, newMembers);
     }
 
     @Override
