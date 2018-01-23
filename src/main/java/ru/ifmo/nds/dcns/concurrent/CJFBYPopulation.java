@@ -1,33 +1,32 @@
-package ru.ifmo.nds.dcns.jfby;
+package ru.ifmo.nds.dcns.concurrent;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
-import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
+import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
-import java.util.*;
+import javax.annotation.concurrent.ThreadSafe;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-@NotThreadSafe
-public class JFBYPopulation implements IManagedPopulation {
+@ThreadSafe
+public class CJFBYPopulation implements IManagedPopulation {
     private final List<INonDominationLevel> nonDominationLevels = new ArrayList<>();
-    private final Random random = new Random(System.nanoTime());
     private final JFB2014 sorter;
 
-    private int lastNumberOfMovements = 0;
-    private int lastSumOfMovements = 0;
-    private int size = 0;
+    private volatile int lastNumberOfMovements = 0;
+    private volatile int lastSumOfMovements = 0;
+    private final AtomicInteger size = new AtomicInteger(0);
 
-    public JFBYPopulation() {
-        this(new IncrementalJFB());
-    }
-
-    @SuppressWarnings("WeakerAccess")
-    public JFBYPopulation(JFB2014 sorter) {
+    public CJFBYPopulation(JFB2014 sorter) {
         this.sorter = sorter;
     }
 
@@ -45,12 +44,14 @@ public class JFBYPopulation implements IManagedPopulation {
 
     @Nonnull
     @Override
+    //FIXME: NOT THREAD SAFE
     public List<IIndividual> getRandomSolutions(int count) {
         if (count < 0) {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
+        final Random random = ThreadLocalRandom.current();
         final int actualCount = Math.min(count, size());
-        return random.ints(0, size, actualCount * 3).distinct().limit(actualCount).mapToObj(i -> {
+        return random.ints(0, size.get(), actualCount * 3).distinct().limit(actualCount).mapToObj(i -> {
                     for (INonDominationLevel level : nonDominationLevels) {
                         if (i < level.getMembers().size()) {
                             return level.getMembers().get(i);
@@ -65,9 +66,10 @@ public class JFBYPopulation implements IManagedPopulation {
 
     @Override
     public int size() {
-        return size;
+        return size.get();
     }
 
+    //FIXME: not thread safe
     private int determineRank(IIndividual point) {
         int l = 0;
         int r = nonDominationLevels.size() - 1;
@@ -86,15 +88,15 @@ public class JFBYPopulation implements IManagedPopulation {
     }
 
     @Override
+    //FIXME: not thread safe
     public int addIndividual(IIndividual addend) {
         lastNumberOfMovements = 0;
         lastSumOfMovements = 0;
 
         final int rank = determineRank(addend);
         if (rank >= nonDominationLevels.size()) {
-            final List<IIndividual> individuals = new ArrayList<>();
-            individuals.add(addend);
-            final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, individuals);
+            final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter);
+            level.getMembers().add(addend);
             nonDominationLevels.add(level);
         } else {
             List<IIndividual> addends = Collections.singletonList(addend);
@@ -125,7 +127,7 @@ public class JFBYPopulation implements IManagedPopulation {
             }
         }
 
-        ++size;
+        size.incrementAndGet();
         return rank;
     }
 
@@ -134,8 +136,9 @@ public class JFBYPopulation implements IManagedPopulation {
      */
     @SuppressWarnings("MethodDoesntCallSuperMethod")
     @Override
-    public JFBYPopulation clone() {
-        final JFBYPopulation copy = new JFBYPopulation(sorter);
+    //FIXME: not thread safe. RW lock needed?
+    public CJFBYPopulation clone() {
+        final CJFBYPopulation copy = new CJFBYPopulation(sorter);
         for (INonDominationLevel level : nonDominationLevels) {
             copy.getLevels().add(level.copy());
         }

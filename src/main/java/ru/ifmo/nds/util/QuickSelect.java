@@ -10,8 +10,6 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @ThreadSafe
 public class QuickSelect {
-    private final Random random = ThreadLocalRandom.current();
-
     public double getMedian(double[] values) {
         Objects.requireNonNull(values);
         return getKthElement(values, values.length / 2);
@@ -73,6 +71,7 @@ public class QuickSelect {
     }
 
     int calcPivot(double[] values, int from, int to) {
+        final Random random = ThreadLocalRandom.current();
         return random.nextInt(to - from) + from;
     }
 }

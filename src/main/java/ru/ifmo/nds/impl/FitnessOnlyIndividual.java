@@ -3,8 +3,10 @@ package ru.ifmo.nds.impl;
 import ru.ifmo.nds.IIndividual;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.Arrays;
 
+@ThreadSafe
 public class FitnessOnlyIndividual implements IIndividual {
     @Nonnull
     private final double[] fitness;

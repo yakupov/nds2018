@@ -9,6 +9,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,15 +21,16 @@ public class JFBYNonDominationLevel implements INonDominationLevel {
     private final JFB2014 sorter;
 
     @Nonnull
-    private List<IIndividual> members;
+    private final List<IIndividual> members;
 
     public JFBYNonDominationLevel(JFB2014 sorter) {
         this(sorter, new ArrayList<>());
     }
 
-    private JFBYNonDominationLevel(@Nonnull JFB2014 sorter, @Nonnull List<IIndividual> members) {
+    @SuppressWarnings("WeakerAccess")
+    public JFBYNonDominationLevel(@Nonnull JFB2014 sorter, @Nonnull List<IIndividual> members) {
         this.sorter = sorter;
-        this.members = members;
+        this.members = Collections.unmodifiableList(members);
     }
 
     @Override
@@ -49,8 +51,7 @@ public class JFBYNonDominationLevel implements INonDominationLevel {
             else
                 nextLevel.add(rp.getPop()[i]);
         }
-        members = currLevel;
-        return new MemberAdditionResult(nextLevel, this);
+        return new MemberAdditionResult(nextLevel, new JFBYNonDominationLevel(sorter, currLevel));
     }
 
     @Override
