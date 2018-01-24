@@ -6,7 +6,7 @@ import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
-import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
 
-@NotThreadSafe
+@ThreadSafe
 public class JFBYNonDominationLevel implements INonDominationLevel {
     @Nonnull
     private final JFB2014 sorter;
@@ -23,11 +23,6 @@ public class JFBYNonDominationLevel implements INonDominationLevel {
     @Nonnull
     private final List<IIndividual> members;
 
-    public JFBYNonDominationLevel(JFB2014 sorter) {
-        this(sorter, new ArrayList<>());
-    }
-
-    @SuppressWarnings("WeakerAccess")
     public JFBYNonDominationLevel(@Nonnull JFB2014 sorter, @Nonnull List<IIndividual> members) {
         this.sorter = sorter;
         this.members = Collections.unmodifiableList(members);

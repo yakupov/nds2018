@@ -105,8 +105,7 @@ public class JFBYPopulation implements IManagedPopulation {
                 lastSumOfMovements += addends.size();
 
                 if (prevSize == addends.size()) { //Whole level was pushed
-                    final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter);
-                    level.getMembers().addAll(addends);
+                    final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, addends);
                     nonDominationLevels.add(i, level);
                     return rank;
                 }
@@ -119,8 +118,7 @@ public class JFBYPopulation implements IManagedPopulation {
                 i++;
             }
             if (!addends.isEmpty()) {
-                final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter);
-                level.getMembers().addAll(addends);
+                final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, addends);
                 nonDominationLevels.add(level);
             }
         }
