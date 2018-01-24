@@ -8,6 +8,7 @@ import ru.ifmo.nds.dcns.sorter.JFB2014;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+@ThreadSafe
 public class CJFBYPopulation implements IManagedPopulation {
     private final CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> nonDominationLevels;
     private final Lock addRemoveLevelLock = new ReentrantLock();
@@ -121,7 +123,7 @@ public class CJFBYPopulation implements IManagedPopulation {
     @Override
     public int addIndividual(IIndividual addend) {
         int rank = determineMinimalPossibleRank(addend);
-        Integer rs = null;
+        Integer firstModifiedLevelRank = null;
         Queue<IIndividual> addends = new LinkedList<>();
         addends.add(addend);
         while (!addends.isEmpty()) {
@@ -134,8 +136,8 @@ public class CJFBYPopulation implements IManagedPopulation {
                         individuals.addAll(addends);
                         final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, individuals);
                         nonDominationLevels.add(new AtomicReference<>(level));
-                        if (rs == null) {
-                            rs = rank;
+                        if (firstModifiedLevelRank == null) {
+                            firstModifiedLevelRank = rank;
                         }
                         break;
                     }
@@ -150,8 +152,8 @@ public class CJFBYPopulation implements IManagedPopulation {
                     if (!level.dominatedByAnyPointOfThisLayer(nextAddend)) {
                         final INonDominationLevel.MemberAdditionResult mar = level.addMembers(Collections.singletonList(nextAddend));
                         if (nonDominationLevels.get(rank).compareAndSet(level, mar.getModifiedLevel())) {
-                            if (rs == null) {
-                                rs = rank;
+                            if (firstModifiedLevelRank == null) {
+                                firstModifiedLevelRank = rank;
                             }
                             nextAddends.addAll(mar.getEvictedMembers());
                             addends.poll();
@@ -168,7 +170,7 @@ public class CJFBYPopulation implements IManagedPopulation {
         if (size.incrementAndGet() > expectedPopulationSize) {
             intRemoveWorst();
         }
-        return Objects.requireNonNull(rs, "Impossible situation: the point was not added");
+        return Objects.requireNonNull(firstModifiedLevelRank, "Impossible situation: the point was not added");
     }
 
     /**
