@@ -13,16 +13,18 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-public class CJFBYCorrectnessTest extends ManagedPopulationCorrectnessTest {
+abstract class AbstractCJFBYCorrectnessTest extends ManagedPopulationCorrectnessTest {
+    abstract boolean shouldUseOneByOneSorting();
+
     @Override
     protected IManagedPopulation constructPopulation(int dimensionsCount) {
-        return new CJFBYPopulation(100500);
+        return new CJFBYPopulation(100500, shouldUseOneByOneSorting());
     }
 
     @SuppressWarnings("ConstantConditions")
     @Test
     public void testWithRemoval() {
-        final CJFBYPopulation pop = new CJFBYPopulation(100500);
+        final CJFBYPopulation pop = new CJFBYPopulation(100500, shouldUseOneByOneSorting());
 
         final double[] point16 = {0.1669424402868558, 0.41123196219828895, 17.98980401569634};
         pop.addIndividual(new FitnessOnlyIndividual(point16));
