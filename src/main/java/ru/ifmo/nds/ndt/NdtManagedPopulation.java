@@ -23,6 +23,7 @@ public class NdtManagedPopulation implements IManagedPopulation {
         );
     }
 
+    @SuppressWarnings("WeakerAccess")
     public NdtManagedPopulation(Comparator<IIndividual> dominationComparator, INdtSettings ndtSettings) {
         this.dominationComparator = dominationComparator;
         this.ndtSettings = ndtSettings;
@@ -46,7 +47,7 @@ public class NdtManagedPopulation implements IManagedPopulation {
     }
 
     @Override
-    public int addIndividual(IIndividual addend) {
+    public int addIndividual(@Nonnull IIndividual addend) {
         final int rank = determineRank(addend);
         //System.out.println("Addend " + addend + " rank: " + rank);
         if (rank >= ndLayers.size()) {
@@ -116,6 +117,7 @@ public class NdtManagedPopulation implements IManagedPopulation {
         return copy;
     }
 
+    @SuppressWarnings("StringBufferReplaceableByString")
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("NdtManagedPopulation{");

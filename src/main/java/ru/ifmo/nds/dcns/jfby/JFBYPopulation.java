@@ -86,7 +86,7 @@ public class JFBYPopulation implements IManagedPopulation {
     }
 
     @Override
-    public int addIndividual(IIndividual addend) {
+    public int addIndividual(@Nonnull IIndividual addend) {
         lastNumberOfMovements = 0;
         lastSumOfMovements = 0;
 

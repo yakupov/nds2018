@@ -5,7 +5,7 @@ import ru.ifmo.nds.INonDominationLevel;
 import java.util.List;
 import java.util.Objects;
 
-public class PopulationSnapshot {
+class PopulationSnapshot {
     private final List<INonDominationLevel> levels;
     private final int size;
 

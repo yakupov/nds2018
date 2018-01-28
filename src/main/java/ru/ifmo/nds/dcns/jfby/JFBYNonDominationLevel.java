@@ -6,6 +6,7 @@ import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
 
 @ThreadSafe
+@Immutable
 public class JFBYNonDominationLevel implements INonDominationLevel {
     @Nonnull
     private final JFB2014 sorter;

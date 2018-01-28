@@ -13,7 +13,7 @@ public interface IManagedPopulation extends Cloneable {
      * @param individual Individual to add
      * @return Added individual's rank (starting from zero)
      */
-    int addIndividual(IIndividual individual);
+    int addIndividual(@Nonnull IIndividual individual);
 
     /**
      * @return List of non-domination levels. Index in list equals to layer's rank.

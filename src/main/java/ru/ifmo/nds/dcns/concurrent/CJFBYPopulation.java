@@ -5,11 +5,13 @@ import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
+import ru.ifmo.nds.util.ObjectiveComparator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,12 +24,14 @@ import static ru.ifmo.nds.util.Utils.lexCompare;
 @ThreadSafe
 public class CJFBYPopulation implements IManagedPopulation {
     private final CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> nonDominationLevels;
+    private final Map<IIndividual, Boolean> presentIndividuals = new ConcurrentHashMap<>();
     private final Lock addRemoveLevelLock = new ReentrantLock();
     private final AtomicInteger size = new AtomicInteger(0); //Cannot actually be decreased
 
     private final JFB2014 sorter = new JFB2014();
     private final int expectedPopulationSize; //Members will not be deleted if the size is less or equal to this value
 
+    @SuppressWarnings("WeakerAccess")
     public CJFBYPopulation(int expectedPopulationSize) {
         this(new CopyOnWriteArrayList<>(), expectedPopulationSize);
     }
@@ -65,8 +69,76 @@ public class CJFBYPopulation implements IManagedPopulation {
     }
 
     @Nullable
-    private IIndividual intRemoveWorst() {
-        throw new UnsupportedOperationException("Not needed to test NDS"); //TODO: impl later, considering CD
+    IIndividual intRemoveWorst() {
+        while (true) {
+            try {
+                final int lastLevelIndex = nonDominationLevels.size() - 1;
+                final INonDominationLevel lastLevel = nonDominationLevels.get(lastLevelIndex).get();
+                if (lastLevel.getMembers().size() <= 1) {
+                    try {
+                        addRemoveLevelLock.lock();
+                        if (lastLevelIndex == nonDominationLevels.size() - 1 &&
+                                nonDominationLevels.get(lastLevelIndex).compareAndSet(lastLevel, null)) {
+                            nonDominationLevels.remove(lastLevelIndex);
+                            if (lastLevel.getMembers().isEmpty()) {
+                                return null;
+                            } else {
+                                final IIndividual rs = lastLevel.getMembers().get(0);
+                                presentIndividuals.remove(rs);
+                                return rs;
+                            }
+                        }
+                    } finally {
+                        addRemoveLevelLock.unlock();
+                    }
+                } else {
+                    final int n = lastLevel.getMembers().size();
+                    final int numberOfObjectives = lastLevel.getMembers().get(0).getObjectives().length;
+                    final IIndividual removedIndividual;
+                    if (n < 3) {
+                        removedIndividual = lastLevel.getMembers().get(0);
+                    } else {
+                        final List<IIndividual> frontCopy = new ArrayList<>(lastLevel.getMembers().size());
+                        frontCopy.addAll(lastLevel.getMembers());
+                        final Map<IIndividual, Double> cdMap = new IdentityHashMap<>();
+                        for (int i = 0; i < numberOfObjectives; i++) {
+                            frontCopy.sort(new ObjectiveComparator(i));
+                            cdMap.put(frontCopy.get(0), Double.POSITIVE_INFINITY);
+                            cdMap.put(frontCopy.get(n - 1), Double.POSITIVE_INFINITY);
+
+                            final double minObjective = frontCopy.get(0).getObjectives()[i];
+                            final double maxObjective = frontCopy.get(n - 1).getObjectives()[i];
+                            for (int j = 1; j < n - 1; j++) {
+                                double distance = cdMap.getOrDefault(frontCopy.get(j), 0.0);
+                                distance += (frontCopy.get(j + 1).getObjectives()[i] -
+                                        frontCopy.get(j - 1).getObjectives()[i])
+                                        / (maxObjective - minObjective);
+                                cdMap.put(frontCopy.get(j), distance);
+                            }
+                        }
+                        IIndividual worstIndividual = null;
+                        for (IIndividual individual : frontCopy) {
+                            if (worstIndividual == null || cdMap.get(worstIndividual) > cdMap.get(individual)) {
+                                worstIndividual = individual;
+                            }
+                        }
+                        removedIndividual = worstIndividual;
+                    }
+                    final List<IIndividual> newMembers = new ArrayList<>(lastLevel.getMembers().size());
+                    for (IIndividual individual : lastLevel.getMembers()) {
+                        if (individual != removedIndividual) {
+                            newMembers.add(individual);
+                        }
+                    }
+                    if (nonDominationLevels.get(lastLevelIndex).compareAndSet(lastLevel, new JFBYNonDominationLevel(sorter, newMembers))) {
+                        presentIndividuals.remove(removedIndividual);
+                        return removedIndividual;
+                    }
+                }
+            } catch (ArrayIndexOutOfBoundsException ignored) {
+                //retry
+            }
+        }
     }
 
     @Nonnull
@@ -120,8 +192,13 @@ public class CJFBYPopulation implements IManagedPopulation {
     }
 
     @Override
-    public int addIndividual(IIndividual addend) {
+    public int addIndividual(@Nonnull IIndividual addend) {
         int rank = determineMinimalPossibleRank(addend);
+
+        if (presentIndividuals.putIfAbsent(addend, true) != null) {
+            return rank;
+        }
+
         Integer firstModifiedLevelRank = null;
         List<IIndividual> addends = new ArrayList<>();
         addends.add(addend);
