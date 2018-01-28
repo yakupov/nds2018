@@ -36,10 +36,22 @@ public class CJFBYPopulation implements IManagedPopulation {
         this(new CopyOnWriteArrayList<>(), expectedPopulationSize);
     }
 
-    private CJFBYPopulation(CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> nonDominationLevels,
-                            int expectedPopulationSize) {
+    @SuppressWarnings("WeakerAccess")
+    public CJFBYPopulation(CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> nonDominationLevels,
+                           int expectedPopulationSize) {
         this.nonDominationLevels = nonDominationLevels;
         this.expectedPopulationSize = expectedPopulationSize;
+
+        if (!nonDominationLevels.isEmpty()) {
+            int ctr = 0;
+            for (AtomicReference<INonDominationLevel> levelRef : nonDominationLevels) {
+                for (IIndividual individual : levelRef.get().getMembers()) {
+                    presentIndividuals.put(individual, true);
+                    ++ctr;
+                }
+            }
+            size.set(ctr);
+        }
     }
 
     @Override
