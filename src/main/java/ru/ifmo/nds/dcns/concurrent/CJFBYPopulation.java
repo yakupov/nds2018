@@ -15,15 +15,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static ru.ifmo.nds.util.Utils.lexCompare;
 
 @ThreadSafe
 public class CJFBYPopulation implements IManagedPopulation {
-    private final CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> nonDominationLevels;
+    private class LevelRef {
+        final long modificationTs;
+        final INonDominationLevel level;
+
+        LevelRef(long modificationTs, INonDominationLevel level) {
+            this.modificationTs = modificationTs;
+            this.level = level;
+        }
+    }
+
+    private final CopyOnWriteArrayList<AtomicReference<LevelRef>> nonDominationLevels;
+    private final AtomicLong time = new AtomicLong(0); //TODO: process overflow
+
     private final Map<IIndividual, Boolean> presentIndividuals = new ConcurrentHashMap<>();
     private final Lock addRemoveLevelLock = new ReentrantLock();
     private final AtomicInteger size = new AtomicInteger(0); //Cannot actually be decreased
@@ -40,7 +54,11 @@ public class CJFBYPopulation implements IManagedPopulation {
     @SuppressWarnings("WeakerAccess")
     public CJFBYPopulation(CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> nonDominationLevels,
                            int expectedPopulationSize, boolean useOneByOneSorting) {
-        this.nonDominationLevels = nonDominationLevels;
+        this.nonDominationLevels = new CopyOnWriteArrayList<>();
+        this.nonDominationLevels.addAll(nonDominationLevels.stream()
+                .map(ref -> new AtomicReference<>(new LevelRef(0, ref.get())))
+                .collect(Collectors.toList()));
+
         this.expectedPopulationSize = expectedPopulationSize;
         this.useOneByOneSorting = useOneByOneSorting;
 
@@ -67,9 +85,9 @@ public class CJFBYPopulation implements IManagedPopulation {
         final Object[] levels = nonDominationLevels.toArray();
         final List<INonDominationLevel> levelsSnapshot = Arrays.asList(new INonDominationLevel[levels.length]);
         for (int j = levels.length - 1; j >= 0; --j) { //Reverse iterator because elements may only move to latter levels, and we do not want any collisions
-            @SuppressWarnings("unchecked") final AtomicReference<INonDominationLevel> levelRef =
-                    (AtomicReference<INonDominationLevel>) levels[j];
-            final INonDominationLevel level = levelRef.get();
+            @SuppressWarnings("unchecked") final AtomicReference<LevelRef> levelRef =
+                    (AtomicReference<LevelRef>) levels[j];
+            final INonDominationLevel level = levelRef.get().level;
             levelsSnapshot.set(j, level);
             sizeSnapshot += level.getMembers().size();
         }
@@ -87,12 +105,13 @@ public class CJFBYPopulation implements IManagedPopulation {
         while (true) {
             try {
                 final int lastLevelIndex = nonDominationLevels.size() - 1;
-                final INonDominationLevel lastLevel = nonDominationLevels.get(lastLevelIndex).get();
+                final LevelRef lastLevelRef = nonDominationLevels.get(lastLevelIndex).get();
+                final INonDominationLevel lastLevel = lastLevelRef.level;
                 if (lastLevel.getMembers().size() <= 1) {
                     try {
                         addRemoveLevelLock.lock();
                         if (lastLevelIndex == nonDominationLevels.size() - 1 &&
-                                nonDominationLevels.get(lastLevelIndex).compareAndSet(lastLevel, null)) {
+                                nonDominationLevels.get(lastLevelIndex).compareAndSet(lastLevelRef, null)) {
                             nonDominationLevels.remove(lastLevelIndex);
                             if (lastLevel.getMembers().isEmpty()) {
                                 return null;
@@ -144,7 +163,8 @@ public class CJFBYPopulation implements IManagedPopulation {
                             newMembers.add(individual);
                         }
                     }
-                    if (nonDominationLevels.get(lastLevelIndex).compareAndSet(lastLevel, new JFBYNonDominationLevel(sorter, newMembers))) {
+                    if (nonDominationLevels.get(lastLevelIndex)
+                            .compareAndSet(lastLevelRef, new LevelRef(time.incrementAndGet(), new JFBYNonDominationLevel(sorter, newMembers)))) {
                         presentIndividuals.remove(removedIndividual);
                         return removedIndividual;
                     }
@@ -193,7 +213,7 @@ public class CJFBYPopulation implements IManagedPopulation {
         int lastNonDominating = r + 1;
         while (l <= r) {
             final int test = (l + r) / 2;
-            if (!nonDominationLevels.get(test).get().dominatedByAnyPointOfThisLayer(point)) {
+            if (!nonDominationLevels.get(test).get().level.dominatedByAnyPointOfThisLayer(point)) {
                 //Racy, but that's OK
                 lastNonDominating = test;
                 r = test - 1;
@@ -207,6 +227,7 @@ public class CJFBYPopulation implements IManagedPopulation {
 
     @Override
     public int addIndividual(@Nonnull IIndividual addend) {
+        final long insertionTs = time.incrementAndGet();
         int rank = determineMinimalPossibleRank(addend);
         if (presentIndividuals.putIfAbsent(addend, true) != null) {
             return rank;
@@ -214,9 +235,9 @@ public class CJFBYPopulation implements IManagedPopulation {
 
         final Integer firstModifiedLevelRank;
         if (useOneByOneSorting) {
-            firstModifiedLevelRank = insertOneByOne(addend, rank);
+            firstModifiedLevelRank = insertOneByOne(addend, rank, insertionTs);
         } else {
-             firstModifiedLevelRank = insertViaFullSortings(addend, rank);
+            firstModifiedLevelRank = insertViaFullSortings(addend, rank);
         }
 
         if (size.incrementAndGet() > expectedPopulationSize) {
@@ -226,20 +247,19 @@ public class CJFBYPopulation implements IManagedPopulation {
         return Objects.requireNonNull(firstModifiedLevelRank, "Impossible situation: the point was not added");
     }
 
-    private Integer insertOneByOne(@Nonnull IIndividual addend, int rank) {
+    private Integer insertOneByOne(@Nonnull final IIndividual originalAddend, int rank, final long ts) {
         Integer firstModifiedLevelRank = null;
         Queue<IIndividual> addends = new LinkedList<>();
-        addends.add(addend);
+        addends.add(originalAddend);
         while (!addends.isEmpty()) {
             if (rank >= nonDominationLevels.size()) {
                 try {
                     addRemoveLevelLock.lock();
-                    rank = determineMinimalPossibleRank(addend);
                     if (rank >= nonDominationLevels.size()) {
                         final List<IIndividual> individuals = new ArrayList<>();
                         individuals.addAll(addends);
                         final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, individuals);
-                        nonDominationLevels.add(new AtomicReference<>(level));
+                        nonDominationLevels.add(new AtomicReference<>(new LevelRef(time.incrementAndGet(), level)));
                         if (firstModifiedLevelRank == null) {
                             firstModifiedLevelRank = rank;
                         }
@@ -251,19 +271,37 @@ public class CJFBYPopulation implements IManagedPopulation {
             } else {
                 final Queue<IIndividual> nextAddends = new LinkedList<>();
                 while (!addends.isEmpty() && rank < nonDominationLevels.size()) {
-                    final INonDominationLevel level = nonDominationLevels.get(rank).get();
-                    final IIndividual nextAddend = addends.peek();
-                    if (!level.dominatedByAnyPointOfThisLayer(nextAddend)) {
-                        final INonDominationLevel.MemberAdditionResult mar = level.addMembers(Collections.singletonList(nextAddend));
-                        if (nonDominationLevels.get(rank).compareAndSet(level, mar.getModifiedLevel())) {
+                    final LevelRef levelRef = nonDominationLevels.get(rank).get();
+                    final JFBYNonDominationLevel level = (JFBYNonDominationLevel) levelRef.level;
+                    if (ts > levelRef.modificationTs) {
+                        final List<IIndividual> addendsList = new ArrayList<>();
+                        addendsList.addAll(addends);
+                        addendsList.sort((o1, o2) -> lexCompare(o1.getObjectives(), o2.getObjectives(), o1.getObjectives().length));
+                        final INonDominationLevel.MemberAdditionResult mar = level.addMembers(addendsList);
+                        if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), mar.getModifiedLevel()))) {
                             if (firstModifiedLevelRank == null) {
                                 firstModifiedLevelRank = rank;
                             }
-                            nextAddends.addAll(mar.getEvictedMembers());
-                            addends.poll();
+                            ++rank;
+                            addends = new LinkedList<>();
+                            addends.addAll(mar.getEvictedMembers());
                         }
                     } else {
-                        nextAddends.add(addends.poll());
+                        final IIndividual nextAddend = addends.peek();
+                        final IIndividual dominator = level.dominatedByWho(nextAddend);
+                        if (dominator == null) {
+                            final INonDominationLevel.MemberAdditionResult mar = level.addMembers(Collections.singletonList(nextAddend));
+                            if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), mar.getModifiedLevel()))) {
+                                if (firstModifiedLevelRank == null) {
+                                    firstModifiedLevelRank = rank;
+                                }
+                                nextAddends.addAll(mar.getEvictedMembers());
+                                nextAddends.addAll(mar.getEvictedMembers());
+                                addends.poll();
+                            }
+                        } else {
+                            nextAddends.add(addends.poll());
+                        }
                     }
                 }
                 addends = nextAddends;
@@ -274,8 +312,7 @@ public class CJFBYPopulation implements IManagedPopulation {
         return firstModifiedLevelRank;
     }
 
-
-        private Integer insertViaFullSortings(@Nonnull IIndividual addend, int rank) {
+    private Integer insertViaFullSortings(@Nonnull IIndividual addend, int rank) {
         Integer firstModifiedLevelRank = null;
         List<IIndividual> addends = new ArrayList<>();
         addends.add(addend);
@@ -294,7 +331,8 @@ public class CJFBYPopulation implements IManagedPopulation {
                             levels.get(ranks[i]).add(members[i]);
                         }
                         for (List<IIndividual> level : levels) {
-                            nonDominationLevels.add(new AtomicReference<>(new JFBYNonDominationLevel(sorter, level)));
+                            nonDominationLevels.add(new AtomicReference<>(
+                                    new LevelRef(time.incrementAndGet(), new JFBYNonDominationLevel(sorter, level))));
                         }
                         if (firstModifiedLevelRank == null) {
                             firstModifiedLevelRank = rank;
@@ -305,7 +343,8 @@ public class CJFBYPopulation implements IManagedPopulation {
                     addRemoveLevelLock.unlock();
                 }
             } else {
-                final INonDominationLevel level = nonDominationLevels.get(rank).get();
+                final LevelRef levelRef = nonDominationLevels.get(rank).get();
+                final INonDominationLevel level = levelRef.level;
                 final IIndividual[] allMembers = lexMerge(addends, level.getMembers());
                 final int[] ranks = sorter.performNds(allMembers);
                 final List<IIndividual> newCurrLevelMembers = new ArrayList<>();
@@ -318,7 +357,7 @@ public class CJFBYPopulation implements IManagedPopulation {
                     }
                 }
                 final INonDominationLevel newLevel = new JFBYNonDominationLevel(sorter, newCurrLevelMembers);
-                if (nonDominationLevels.get(rank).compareAndSet(level, newLevel)) {
+                if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
                     if (firstModifiedLevelRank == null) {
                         firstModifiedLevelRank = rank;
                     }
@@ -365,8 +404,8 @@ public class CJFBYPopulation implements IManagedPopulation {
     @Override
     public CJFBYPopulation clone() {
         final CopyOnWriteArrayList<AtomicReference<INonDominationLevel>> list = new CopyOnWriteArrayList<>();
-        for (AtomicReference<INonDominationLevel> level : nonDominationLevels) {
-            list.add(new AtomicReference<>(level.get().copy()));
+        for (AtomicReference<LevelRef> levelRef : nonDominationLevels) {
+            list.add(new AtomicReference<>(levelRef.get().level.copy()));
         }
         return new CJFBYPopulation(list, expectedPopulationSize, useOneByOneSorting);
     }

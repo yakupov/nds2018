@@ -64,6 +64,18 @@ public class JFBYNonDominationLevel implements INonDominationLevel {
         return false;
     }
 
+    public IIndividual dominatedByWho(@Nonnull IIndividual point) {
+        final double[] pointObj = point.getObjectives();
+        for (IIndividual member: members) {
+            final double[] memberObj = member.getObjectives();
+            if (memberObj[0] > pointObj[0])
+                break;
+            if (dominates(memberObj, pointObj, pointObj.length) < 0)
+                return member;
+        }
+        return null;
+    }
+
     @Override
     public JFBYNonDominationLevel copy() {
         final List<IIndividual> newMembers = new ArrayList<>(members.size());
