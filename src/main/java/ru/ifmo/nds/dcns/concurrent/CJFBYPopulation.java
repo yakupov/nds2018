@@ -256,8 +256,7 @@ public class CJFBYPopulation implements IManagedPopulation {
                 try {
                     addRemoveLevelLock.lock();
                     if (rank >= nonDominationLevels.size()) {
-                        final List<IIndividual> individuals = new ArrayList<>();
-                        individuals.addAll(addends);
+                        final List<IIndividual> individuals = new ArrayList<>(addends);
                         final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, individuals);
                         nonDominationLevels.add(new AtomicReference<>(new LevelRef(time.incrementAndGet(), level)));
                         if (firstModifiedLevelRank == null) {
@@ -274,8 +273,7 @@ public class CJFBYPopulation implements IManagedPopulation {
                     final LevelRef levelRef = nonDominationLevels.get(rank).get();
                     final JFBYNonDominationLevel level = (JFBYNonDominationLevel) levelRef.level;
                     if (ts > levelRef.modificationTs) {
-                        final List<IIndividual> addendsList = new ArrayList<>();
-                        addendsList.addAll(addends);
+                        final List<IIndividual> addendsList = new ArrayList<>(addends);
                         addendsList.sort((o1, o2) -> lexCompare(o1.getObjectives(), o2.getObjectives(), o1.getObjectives().length));
                         final INonDominationLevel.MemberAdditionResult mar = level.addMembers(addendsList);
                         if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), mar.getModifiedLevel()))) {
