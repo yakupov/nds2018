@@ -84,6 +84,7 @@ public class SyncJFBYPopulation implements IManagedPopulation {
         return size.get();
     }
 
+    @SuppressWarnings("Duplicates")
     private int determineRank(IIndividual point) {
         int l = 0;
         int r = nonDominationLevels.size() - 1;
@@ -101,52 +102,45 @@ public class SyncJFBYPopulation implements IManagedPopulation {
         return lastNonDominating;
     }
 
-    @SuppressWarnings("unused") //TODO: delete later
-    private int getRankSyncSpin(@Nonnull IIndividual addend) {
-        int rank;
-        while (true) {
-            try {
-                rank = determineRank(addend);
-                final Lock lockedLock;
-                if (rank >= nonDominationLevels.size()) {
-                    lockedLock = addLevelLock;
-                } else {
-                    lockedLock = levelLocks.get(rank);
-                }
-                if (lockedLock.tryLock()) {
-                    if (rank == determineRank(addend)) {
-                        break;
-                    } else {
-                        lockedLock.unlock();
-                    }
-                }
-            } catch (ArrayIndexOutOfBoundsException ignored) {
-            }
-        }
-        return rank;
-    }
+    //        while (!locked) {
+//            addLevelLock.lock();
+//            locked = true;
+//            rank = determineRank(addend);
+//            if (rank < nonDominationLevels.size()) {
+//                addLevelLock.unlock();
+//                locked = false;
+//
+//                final Lock rankLock = levelLocks.get(rank);
+//                if (rankLock.tryLock()) {
+//                    if (nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
+//                        rankLock.unlock();
+//                    } else {
+//                        locked = true;
+//                    }
+//                }
+//            }
+//        }
 
     @Override
     public int addIndividual(@Nonnull IIndividual addend) {
         int rank = 0;
-
         boolean locked = false;
         while (!locked) {
-            addLevelLock.lock();
-            synchronized (levelLocks) {
-                rank = determineRank(addend);
-                //noinspection SimplifiableIfStatement
-                if (rank >= nonDominationLevels.size()) {
-                    locked = true;
+            rank = determineRank(addend);
+            if (rank < nonDominationLevels.size()) {
+                final Lock rankLock = levelLocks.get(rank);
+                rankLock.lock();
+                if (nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
+                    rankLock.unlock();
                 } else {
-                    locked = levelLocks.get(rank).tryLock();
-                    if (locked && nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
-                        locked = false;
-                        levelLocks.get(rank).unlock();
-                    }
+                    locked = true;
                 }
-                if (!locked || rank < nonDominationLevels.size()) {
+            } else {
+                addLevelLock.lock();
+                if (determineRank(addend) < nonDominationLevels.size()) {
                     addLevelLock.unlock();
+                } else {
+                    locked = true;
                 }
             }
         }
@@ -157,43 +151,42 @@ public class SyncJFBYPopulation implements IManagedPopulation {
             final List<IIndividual> individuals = new ArrayList<>();
             individuals.add(addend);
             final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, individuals);
-            nonDominationLevels.add(level);
             levelLocks.add(new ReentrantLock());
+            nonDominationLevels.add(level);
             addLevelLock.unlock();
         } else {
             List<IIndividual> addends = Collections.singletonList(addend);
             int i = rank;
             while (!addends.isEmpty() && i < nonDominationLevels.size()) {
                 //assertion: we have locked levelLocks.get(i)
-                final INonDominationLevel level = nonDominationLevels.get(i);
-                final INonDominationLevel.MemberAdditionResult memberAdditionResult = level.addMembers(addends);
-                nonDominationLevels.set(i, memberAdditionResult.getModifiedLevel());
+                try {
+                    final INonDominationLevel level = nonDominationLevels.get(i);
+                    final INonDominationLevel.MemberAdditionResult memberAdditionResult = level.addMembers(addends);
+                    nonDominationLevels.set(i, memberAdditionResult.getModifiedLevel());
 
-                if (i < nonDominationLevels.size() - 1) {
-                    levelLocks.get(i + 1).lock();
-                } else {
-                    addLevelLock.lock();
-                    if (i < nonDominationLevels.size() - 1) {
-                        levelLocks.get(i + 1).lock();
-                        addLevelLock.unlock();
+                    if (!memberAdditionResult.getEvictedMembers().isEmpty()) {
+                        if (i < nonDominationLevels.size() - 1) {
+                            levelLocks.get(i + 1).lock();
+                        } else {
+                            addLevelLock.lock();
+                            if (i < nonDominationLevels.size() - 1) {
+                                addLevelLock.unlock();
+                                levelLocks.get(i + 1).lock();
+                            }
+                        }
                     }
+                    addends = memberAdditionResult.getEvictedMembers();
+                } finally {
+                    levelLocks.get(i).unlock();
                 }
 
-                levelLocks.get(i).unlock();
-                addends = memberAdditionResult.getEvictedMembers();
                 i++;
             }
             if (!addends.isEmpty()) {
                 final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, addends);
-                nonDominationLevels.add(level);
                 levelLocks.add(new ReentrantLock());
+                nonDominationLevels.add(level);
                 addLevelLock.unlock();
-            } else {
-                if (i < nonDominationLevels.size()) {
-                    levelLocks.get(i).unlock();
-                } else {
-                    addLevelLock.unlock();
-                }
             }
         }
 
