@@ -101,13 +101,38 @@ public class SyncJFBYPopulation implements IManagedPopulation {
         return lastNonDominating;
     }
 
+    @SuppressWarnings("unused") //TODO: delete later
+    private int getRankSyncSpin(@Nonnull IIndividual addend) {
+        int rank;
+        while (true) {
+            try {
+                rank = determineRank(addend);
+                final Lock lockedLock;
+                if (rank >= nonDominationLevels.size()) {
+                    lockedLock = addLevelLock;
+                } else {
+                    lockedLock = levelLocks.get(rank);
+                }
+                if (lockedLock.tryLock()) {
+                    if (rank == determineRank(addend)) {
+                        break;
+                    } else {
+                        lockedLock.unlock();
+                    }
+                }
+            } catch (ArrayIndexOutOfBoundsException ignored) {
+            }
+        }
+        return rank;
+    }
+
     @Override
     public int addIndividual(@Nonnull IIndividual addend) {
         int rank = 0;
 
         boolean locked = false;
-        addLevelLock.lock();
         while (!locked) {
+            addLevelLock.lock();
             synchronized (levelLocks) {
                 rank = determineRank(addend);
                 //noinspection SimplifiableIfStatement
@@ -115,11 +140,18 @@ public class SyncJFBYPopulation implements IManagedPopulation {
                     locked = true;
                 } else {
                     locked = levelLocks.get(rank).tryLock();
+                    if (locked && nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
+                        locked = false;
+                        levelLocks.get(rank).unlock();
+                    }
+                }
+                if (!locked || rank < nonDominationLevels.size()) {
+                    addLevelLock.unlock();
                 }
             }
         }
 
-        //Locked current level and all level addition
+        //Locked current level or all level addition
 
         if (rank >= nonDominationLevels.size()) {
             final List<IIndividual> individuals = new ArrayList<>();
@@ -129,7 +161,6 @@ public class SyncJFBYPopulation implements IManagedPopulation {
             levelLocks.add(new ReentrantLock());
             addLevelLock.unlock();
         } else {
-            addLevelLock.unlock();
             List<IIndividual> addends = Collections.singletonList(addend);
             int i = rank;
             while (!addends.isEmpty() && i < nonDominationLevels.size()) {
