@@ -102,25 +102,6 @@ public class SyncJFBYPopulation implements IManagedPopulation {
         return lastNonDominating;
     }
 
-    //        while (!locked) {
-//            addLevelLock.lock();
-//            locked = true;
-//            rank = determineRank(addend);
-//            if (rank < nonDominationLevels.size()) {
-//                addLevelLock.unlock();
-//                locked = false;
-//
-//                final Lock rankLock = levelLocks.get(rank);
-//                if (rankLock.tryLock()) {
-//                    if (nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
-//                        rankLock.unlock();
-//                    } else {
-//                        locked = true;
-//                    }
-//                }
-//            }
-//        }
-
     @Override
     public int addIndividual(@Nonnull IIndividual addend) {
         int rank = 0;
