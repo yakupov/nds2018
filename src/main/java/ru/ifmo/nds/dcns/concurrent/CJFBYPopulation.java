@@ -4,7 +4,6 @@ import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.util.ObjectiveComparator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -20,7 +19,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
-import static ru.ifmo.nds.util.Utils.lexCompare;
+import static ru.ifmo.nds.util.Utils.*;
 
 @ThreadSafe
 public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
@@ -125,46 +124,11 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
                         addRemoveLevelLock.unlock();
                     }
                 } else {
-                    final int n = lastLevel.getMembers().size();
-                    final int numberOfObjectives = lastLevel.getMembers().get(0).getObjectives().length;
-                    final IIndividual removedIndividual;
-                    if (n < 3) {
-                        removedIndividual = lastLevel.getMembers().get(0);
-                    } else {
-                        final List<IIndividual> frontCopy = new ArrayList<>(lastLevel.getMembers().size());
-                        frontCopy.addAll(lastLevel.getMembers());
-                        final Map<IIndividual, Double> cdMap = new IdentityHashMap<>();
-                        for (int i = 0; i < numberOfObjectives; i++) {
-                            frontCopy.sort(new ObjectiveComparator(i));
-                            cdMap.put(frontCopy.get(0), Double.POSITIVE_INFINITY);
-                            cdMap.put(frontCopy.get(n - 1), Double.POSITIVE_INFINITY);
+                    final IIndividual removedIndividual = getWorstCDIndividual(lastLevel);
+                    final JFBYNonDominationLevel newLevel = removeIndividualFromLevel(lastLevel, removedIndividual, sorter);
 
-                            final double minObjective = frontCopy.get(0).getObjectives()[i];
-                            final double maxObjective = frontCopy.get(n - 1).getObjectives()[i];
-                            for (int j = 1; j < n - 1; j++) {
-                                double distance = cdMap.getOrDefault(frontCopy.get(j), 0.0);
-                                distance += (frontCopy.get(j + 1).getObjectives()[i] -
-                                        frontCopy.get(j - 1).getObjectives()[i])
-                                        / (maxObjective - minObjective);
-                                cdMap.put(frontCopy.get(j), distance);
-                            }
-                        }
-                        IIndividual worstIndividual = null;
-                        for (IIndividual individual : frontCopy) {
-                            if (worstIndividual == null || cdMap.get(worstIndividual) > cdMap.get(individual)) {
-                                worstIndividual = individual;
-                            }
-                        }
-                        removedIndividual = worstIndividual;
-                    }
-                    final List<IIndividual> newMembers = new ArrayList<>(lastLevel.getMembers().size());
-                    for (IIndividual individual : lastLevel.getMembers()) {
-                        if (individual != removedIndividual) {
-                            newMembers.add(individual);
-                        }
-                    }
                     if (nonDominationLevels.get(lastLevelIndex)
-                            .compareAndSet(lastLevelRef, new LevelRef(time.incrementAndGet(), new JFBYNonDominationLevel(sorter, newMembers)))) {
+                            .compareAndSet(lastLevelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
                         presentIndividuals.remove(removedIndividual);
                         return removedIndividual;
                     }
