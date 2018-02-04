@@ -102,7 +102,7 @@ public class JFBYPopulation implements IManagedPopulation {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
         final int actualCount = Math.min(count, size());
-        return random.ints(0, size, actualCount * 3).distinct().limit(actualCount).mapToObj(i -> {
+        return random.ints(actualCount * 3, 0, size).distinct().limit(actualCount).mapToObj(i -> {
                     for (INonDominationLevel level : nonDominationLevels) {
                         if (i < level.getMembers().size()) {
                             return level.getMembers().get(i);

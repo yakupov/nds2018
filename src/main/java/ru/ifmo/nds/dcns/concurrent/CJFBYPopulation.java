@@ -149,7 +149,7 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         final PopulationSnapshot populationSnapshot = getLevelsSnapshot();
         final int actualCount = Math.min(count, populationSnapshot.getSize());
         final int[] indices = ThreadLocalRandom.current()
-                .ints(0, this.size.get(), actualCount * 3)
+                .ints(actualCount * 3, 0, this.size.get())
                 .distinct().sorted().limit(actualCount).toArray();
         final List<IIndividual> res = new ArrayList<>();
         int i = 0;
