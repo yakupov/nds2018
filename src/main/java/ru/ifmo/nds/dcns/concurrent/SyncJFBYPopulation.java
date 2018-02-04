@@ -1,19 +1,16 @@
 package ru.ifmo.nds.dcns.concurrent;
 
 import ru.ifmo.nds.IIndividual;
-import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
+import ru.ifmo.nds.util.ObjectiveComparator;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -21,9 +18,10 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 @ThreadSafe
-public class SyncJFBYPopulation implements IManagedPopulation {
+public class SyncJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     private final List<Lock> levelLocks = new CopyOnWriteArrayList<>();
     private final Lock addLevelLock = new ReentrantLock();
+    private final Lock removeLevelLock = new ReentrantLock();
 
     private final Random random = new Random(System.nanoTime());
     private final JFB2014 sorter;
@@ -31,15 +29,23 @@ public class SyncJFBYPopulation implements IManagedPopulation {
     private final AtomicInteger size = new AtomicInteger(0);
     private final CopyOnWriteArrayList<INonDominationLevel> nonDominationLevels;
 
+    private final long expectedPopSize;
+
     @SuppressWarnings("WeakerAccess")
     public SyncJFBYPopulation() {
-        this(new IncrementalJFB(), new CopyOnWriteArrayList<>());
+        this(Long.MAX_VALUE);
     }
 
     @SuppressWarnings("WeakerAccess")
-    public SyncJFBYPopulation(JFB2014 sorter, CopyOnWriteArrayList<INonDominationLevel> nonDominationLevels) {
+    public SyncJFBYPopulation(long expectedPopSize) {
+        this(new IncrementalJFB(), new CopyOnWriteArrayList<>(), expectedPopSize);
+    }
+
+    @SuppressWarnings("WeakerAccess")
+    public SyncJFBYPopulation(JFB2014 sorter, CopyOnWriteArrayList<INonDominationLevel> nonDominationLevels, long expectedPopSize) {
         this.sorter = sorter;
         this.nonDominationLevels = nonDominationLevels;
+        this.expectedPopSize = expectedPopSize;
 
         for (INonDominationLevel level : nonDominationLevels) {
             levelLocks.add(new ReentrantLock());
@@ -56,7 +62,87 @@ public class SyncJFBYPopulation implements IManagedPopulation {
     @Nullable
     @Override
     public IIndividual removeWorst() {
-        throw new UnsupportedOperationException("Not needed to test NDS"); //TODO: impl later, considering CD
+        throw new UnsupportedOperationException("Explicit deletion of members not allowed");
+    }
+
+    @Nullable
+    @Override
+    IIndividual intRemoveWorst() {
+        while (true) {
+            removeLevelLock.lock();
+            try {
+                final int lastLevelIndex = nonDominationLevels.size() - 1;
+                final Lock lastLevelLock = levelLocks.get(lastLevelIndex);
+
+                lastLevelLock.lock();
+                addLevelLock.lock();
+                removeLevelLock.unlock();
+
+                try {
+                    if (lastLevelIndex == nonDominationLevels.size() - 1) {
+                        final INonDominationLevel lastLevel = nonDominationLevels.get(lastLevelIndex);
+                        if (lastLevel.getMembers().size() <= 1) {
+                            levelLocks.remove(lastLevelIndex);
+                            nonDominationLevels.remove(lastLevelIndex);
+                            if (lastLevel.getMembers().isEmpty()) {
+                                System.err.println("Empty last ND level! Levels = " + nonDominationLevels);
+                            } else {
+                                size.decrementAndGet();
+                                return lastLevel.getMembers().get(0);
+                            }
+                        } else {
+                            final int n = lastLevel.getMembers().size();
+                            final int numberOfObjectives = lastLevel.getMembers().get(0).getObjectives().length;
+                            final IIndividual removedIndividual;
+                            if (n < 3) {
+                                removedIndividual = lastLevel.getMembers().get(0);
+                            } else {
+                                final List<IIndividual> frontCopy = new ArrayList<>(lastLevel.getMembers().size());
+                                frontCopy.addAll(lastLevel.getMembers());
+                                final Map<IIndividual, Double> cdMap = new IdentityHashMap<>();
+                                for (int i = 0; i < numberOfObjectives; i++) {
+                                    frontCopy.sort(new ObjectiveComparator(i));
+                                    cdMap.put(frontCopy.get(0), Double.POSITIVE_INFINITY);
+                                    cdMap.put(frontCopy.get(n - 1), Double.POSITIVE_INFINITY);
+
+                                    final double minObjective = frontCopy.get(0).getObjectives()[i];
+                                    final double maxObjective = frontCopy.get(n - 1).getObjectives()[i];
+                                    for (int j = 1; j < n - 1; j++) {
+                                        double distance = cdMap.getOrDefault(frontCopy.get(j), 0.0);
+                                        distance += (frontCopy.get(j + 1).getObjectives()[i] -
+                                                frontCopy.get(j - 1).getObjectives()[i])
+                                                / (maxObjective - minObjective);
+                                        cdMap.put(frontCopy.get(j), distance);
+                                    }
+                                }
+                                IIndividual worstIndividual = null;
+                                for (IIndividual individual : frontCopy) {
+                                    if (worstIndividual == null || cdMap.get(worstIndividual) > cdMap.get(individual)) {
+                                        worstIndividual = individual;
+                                    }
+                                }
+                                removedIndividual = worstIndividual;
+                            }
+
+                            final List<IIndividual> newMembers = new ArrayList<>(lastLevel.getMembers().size());
+                            for (IIndividual individual : lastLevel.getMembers()) {
+                                if (individual != removedIndividual) {
+                                    newMembers.add(individual);
+                                }
+                            }
+                            nonDominationLevels.set(lastLevelIndex, new JFBYNonDominationLevel(sorter, newMembers));
+                            size.decrementAndGet();
+                            return removedIndividual;
+                        }
+                    }
+                } finally {
+                    lastLevelLock.unlock();
+                    addLevelLock.unlock();
+                }
+            } catch (ArrayIndexOutOfBoundsException ignored) {
+                //retry
+            }
+        }
     }
 
     @Nonnull
@@ -171,7 +257,10 @@ public class SyncJFBYPopulation implements IManagedPopulation {
             }
         }
 
-        size.incrementAndGet();
+        if (size.incrementAndGet() > expectedPopSize) {
+            intRemoveWorst();
+        }
+
         return rank;
     }
 
@@ -181,7 +270,7 @@ public class SyncJFBYPopulation implements IManagedPopulation {
     @SuppressWarnings("MethodDoesntCallSuperMethod")
     @Override
     public SyncJFBYPopulation clone() {
-        final SyncJFBYPopulation copy = new SyncJFBYPopulation(sorter, nonDominationLevels);
+        final SyncJFBYPopulation copy = new SyncJFBYPopulation(sorter, nonDominationLevels, expectedPopSize);
         for (INonDominationLevel level : nonDominationLevels) {
             copy.getLevels().add(level.copy());
         }

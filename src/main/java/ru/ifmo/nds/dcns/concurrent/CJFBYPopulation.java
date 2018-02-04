@@ -1,7 +1,6 @@
 package ru.ifmo.nds.dcns.concurrent;
 
 import ru.ifmo.nds.IIndividual;
-import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
 import static ru.ifmo.nds.util.Utils.lexCompare;
 
 @ThreadSafe
-public class CJFBYPopulation implements IManagedPopulation {
+public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     private class LevelRef {
         final long modificationTs;
         final INonDominationLevel level;
@@ -101,6 +100,7 @@ public class CJFBYPopulation implements IManagedPopulation {
     }
 
     @Nullable
+    @Override
     IIndividual intRemoveWorst() {
         while (true) {
             try {
