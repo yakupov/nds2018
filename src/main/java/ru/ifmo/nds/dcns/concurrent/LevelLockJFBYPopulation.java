@@ -13,10 +13,10 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import static ru.ifmo.nds.util.Utils.getWorstCDIndividual;
 import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
@@ -27,7 +27,6 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     private final Lock addLevelLock = new ReentrantLock();
     private final Lock removeLevelLock = new ReentrantLock();
 
-    private final Random random = new Random(System.nanoTime());
     private final JFB2014 sorter;
 
     private final AtomicInteger size = new AtomicInteger(0);
@@ -84,7 +83,6 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
 
                 lastLevelLock.lock();
                 addLevelLock.lock();
-                removeLevelLock.unlock();
 
                 try {
                     if (lastLevelIndex == nonDominationLevels.size() - 1) {
@@ -116,6 +114,8 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
                 }
             } catch (ArrayIndexOutOfBoundsException ignored) {
                 //retry
+            } finally {
+                removeLevelLock.unlock(); //TODO: move back to method
             }
         }
     }
@@ -126,18 +126,30 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         if (count < 0) {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
-        final int actualCount = Math.min(count, size());
-        return random.ints(actualCount * 3, 0, size.get()).distinct().limit(actualCount).mapToObj(i -> {
-                    for (INonDominationLevel level : nonDominationLevels) {
-                        if (i < level.getMembers().size()) {
-                            return level.getMembersWithCD().get(i);
-                        } else {
-                            i -= level.getMembers().size();
-                        }
-                    }
-                    throw new RuntimeException("Failed to get individual number " + i + ", levels: " + nonDominationLevels);
-                }
-        ).collect(Collectors.toList());
+
+        final List<INonDominationLevel> levelsSnapshot = getLevels();
+        int popSize = 0;
+        for (INonDominationLevel level : levelsSnapshot) {
+            popSize += level.getMembers().size();
+        }
+        final int actualCount = Math.min(count, popSize);
+        final int[] indices = ThreadLocalRandom.current()
+                .ints(actualCount * 3, 0, popSize)
+                .distinct().sorted().limit(actualCount).toArray();
+        final List<CDIndividual> res = new ArrayList<>();
+        int i = 0;
+        int prevLevelsSizeSum = 0;
+        for (INonDominationLevel level : levelsSnapshot) {
+            final int levelSize = level.getMembers().size();
+            while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
+                //System.out.println(level.getMembers().size() + "==" + level.getMembersWithCD().size());
+                res.add(level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum));
+                ++i;
+            }
+            prevLevelsSizeSum += levelSize;
+        }
+
+        return res;
     }
 
     @Override
@@ -152,11 +164,15 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         int lastNonDominating = r + 1;
         while (l <= r) {
             final int test = (l + r) / 2;
-            if (!nonDominationLevels.get(test).dominatedByAnyPointOfThisLayer(point)) {
-                lastNonDominating = test;
-                r = test - 1;
-            } else {
-                l = test + 1;
+            try {
+                if (!nonDominationLevels.get(test).dominatedByAnyPointOfThisLayer(point)) {
+                    lastNonDominating = test;
+                    r = test - 1;
+                } else {
+                    l = test + 1;
+                }
+            } catch (ArrayIndexOutOfBoundsException e) {
+                r--;
             }
         }
 
@@ -169,25 +185,20 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
             return determineRank(addend);
         }
 
-        int rank = 0;
-        boolean locked = false;
-        while (!locked) {
+        int rank;
+        while (true) {
             rank = determineRank(addend);
-            if (rank < nonDominationLevels.size()) {
-                final Lock rankLock = levelLocks.get(rank);
-                rankLock.lock();
-                if (nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
-                    rankLock.unlock();
+            final Lock lock = acquireLock(rank);
+            try {
+                if (rank < nonDominationLevels.size() &&
+                        nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
+                    lock.unlock();
                 } else {
-                    locked = true;
+                   // System.out.println(Thread.currentThread().getName() + ": all=" + addLevelLock + ", rl=" + lock);
+                    break;
                 }
-            } else {
-                addLevelLock.lock();
-                if (determineRank(addend) < nonDominationLevels.size()) {
-                    addLevelLock.unlock();
-                } else {
-                    locked = true;
-                }
+            } catch (ArrayIndexOutOfBoundsException ignored) {
+                lock.unlock();
             }
         }
 
@@ -211,15 +222,7 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
                     nonDominationLevels.set(i, memberAdditionResult.getModifiedLevel());
 
                     if (!memberAdditionResult.getEvictedMembers().isEmpty()) {
-                        if (i < nonDominationLevels.size() - 1) {
-                            levelLocks.get(i + 1).lock();
-                        } else {
-                            addLevelLock.lock();
-                            if (i < nonDominationLevels.size() - 1) {
-                                addLevelLock.unlock();
-                                levelLocks.get(i + 1).lock();
-                            }
-                        }
+                        acquireLock(i + 1);
                     }
                     addends = memberAdditionResult.getEvictedMembers();
                 } finally {
@@ -241,6 +244,34 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         }
 
         return rank;
+    }
+
+    private Lock acquireLock(int rank) {
+        while (true) {
+            Lock lock = null;
+            try {
+                if (rank < nonDominationLevels.size()) {
+                    lock = levelLocks.get(rank);
+                    lock.lock();
+                    if (levelLocks.get(rank) == lock) {
+                        return lock;
+                    } else {
+                        lock.unlock();
+                    }
+                } else {
+                    addLevelLock.lock();
+                    if (rank < nonDominationLevels.size()) {
+                        addLevelLock.unlock();
+                    } else {
+                        return addLevelLock;
+                    }
+                }
+            } catch (ArrayIndexOutOfBoundsException ignored) {
+                if (lock != null) {
+                    lock.unlock();
+                }
+            }
+        }
     }
 
     /**

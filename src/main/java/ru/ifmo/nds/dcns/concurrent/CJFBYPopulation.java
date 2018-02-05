@@ -150,14 +150,14 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         final PopulationSnapshot populationSnapshot = getLevelsSnapshot();
         final int actualCount = Math.min(count, populationSnapshot.getSize());
         final int[] indices = ThreadLocalRandom.current()
-                .ints(actualCount * 3, 0, this.size.get())
+                .ints(actualCount * 3, 0, actualCount)
                 .distinct().sorted().limit(actualCount).toArray();
         final List<CDIndividual> res = new ArrayList<>();
         int i = 0;
         int prevLevelsSizeSum = 0;
         for (INonDominationLevel level : populationSnapshot.getLevels()) {
             final int levelSize = level.getMembers().size();
-            while (indices[i] - prevLevelsSizeSum < levelSize) {
+            while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
                 res.add(level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum));
                 ++i;
             }
