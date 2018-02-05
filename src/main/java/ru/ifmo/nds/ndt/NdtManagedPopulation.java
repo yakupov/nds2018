@@ -2,6 +2,7 @@ package ru.ifmo.nds.ndt;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
+import ru.ifmo.nds.impl.CDIndividual;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -94,7 +95,7 @@ public class NdtManagedPopulation implements IManagedPopulation {
 
     @Nonnull
     @Override
-    public List<IIndividual> getRandomSolutions(int count) {
+    public List<CDIndividual> getRandomSolutions(int count) {
         throw new RuntimeException("Not supported yet");
     }
 

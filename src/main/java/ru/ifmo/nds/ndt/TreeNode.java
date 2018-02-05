@@ -1,5 +1,6 @@
 package ru.ifmo.nds.ndt;
 
+import ru.ifmo.nds.AbstractNonDominationLevel;
 import ru.ifmo.nds.IIndividual;
 
 import javax.annotation.Nonnull;
@@ -7,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class TreeNode implements INode {
+public class TreeNode extends AbstractNonDominationLevel implements INode {
     @Nonnull
     private INode left;
 
@@ -19,6 +20,7 @@ public class TreeNode implements INode {
 
     private int size;
 
+    @SuppressWarnings("WeakerAccess")
     public TreeNode(@Nonnull INode left,
                     @Nonnull INode right,
                     int dimension,

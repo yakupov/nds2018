@@ -4,6 +4,7 @@ import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
+import ru.ifmo.nds.impl.CDIndividual;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -45,19 +46,30 @@ public class Utils {
     }
 
     public static IIndividual getWorstCDIndividual(@Nonnull final INonDominationLevel lastLevel) {
-        final int numberOfObjectives = lastLevel.getMembers().get(0).getObjectives().length;
         if (lastLevel.getMembers().size() < 3) {
             return lastLevel.getMembers().get(0);
         } else {
-            return getWorstCDIndividualBigLevel(lastLevel, numberOfObjectives);
+            final List<CDIndividual> lastLevelWithCD = lastLevel.getMembersWithCD();
+            CDIndividual worstIndividual = null;
+            for (CDIndividual individual : lastLevelWithCD) {
+                if (worstIndividual == null || worstIndividual.getCrowdingDistance() > individual.getCrowdingDistance()) {
+                    worstIndividual = individual;
+                }
+            }
+            if (worstIndividual != null) {
+                return worstIndividual.getIndividual();
+            } else {
+                return null;
+            }
         }
     }
 
-    private static IIndividual getWorstCDIndividualBigLevel(@Nonnull final INonDominationLevel lastLevel,
-                                                            final int numberOfObjectives) {
-        final int n = lastLevel.getMembers().size();
-        final List<IIndividual> frontCopy = new ArrayList<>(lastLevel.getMembers().size());
-        frontCopy.addAll(lastLevel.getMembers());
+    public static List<CDIndividual> calculateCrowdingDistances(@Nonnull List<IIndividual> members, int numberOfObjectives) {
+        final int n = members.size();
+
+        final List<IIndividual> frontCopy = new ArrayList<>(members.size());
+        frontCopy.addAll(members);
+
         final Map<IIndividual, Double> cdMap = new IdentityHashMap<>();
         for (int i = 0; i < numberOfObjectives; i++) {
             frontCopy.sort(new ObjectiveComparator(i));
@@ -74,12 +86,11 @@ public class Utils {
                 cdMap.put(frontCopy.get(j), distance);
             }
         }
-        IIndividual worstIndividual = null;
-        for (IIndividual individual : frontCopy) {
-            if (worstIndividual == null || cdMap.get(worstIndividual) > cdMap.get(individual)) {
-                worstIndividual = individual;
-            }
+
+        final List<CDIndividual> rs = new ArrayList<>();
+        for (IIndividual member : members) {
+            rs.add(new CDIndividual(member, cdMap.get(member)));
         }
-        return worstIndividual;
+        return rs;
     }
 }

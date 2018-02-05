@@ -1,5 +1,7 @@
 package ru.ifmo.nds;
 
+import ru.ifmo.nds.impl.CDIndividual;
+
 import javax.annotation.Nonnull;
 import java.util.List;
 
@@ -29,6 +31,11 @@ public interface INonDominationLevel {
      * @return Lexicographically sorted members of this layer
      */
     List<IIndividual> getMembers();
+
+    /**
+     * @return Lexicographically sorted members of this layer with respective crowding distances
+     */
+    List<CDIndividual> getMembersWithCD();
 
     /**
      * Add new points (assuming that their ranks equal the rank of this level).

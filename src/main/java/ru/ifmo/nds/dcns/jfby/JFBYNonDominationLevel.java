@@ -1,12 +1,12 @@
 package ru.ifmo.nds.dcns.jfby;
 
+import ru.ifmo.nds.AbstractNonDominationLevel;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
-import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,8 +17,7 @@ import java.util.stream.Collectors;
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
 
 @ThreadSafe
-@Immutable
-public class JFBYNonDominationLevel implements INonDominationLevel {
+public class JFBYNonDominationLevel extends AbstractNonDominationLevel implements INonDominationLevel {
     @Nonnull
     private final JFB2014 sorter;
 
@@ -62,18 +61,6 @@ public class JFBYNonDominationLevel implements INonDominationLevel {
                 return true;
         }
         return false;
-    }
-
-    public IIndividual dominatedByWho(@Nonnull IIndividual point) {
-        final double[] pointObj = point.getObjectives();
-        for (IIndividual member: members) {
-            final double[] memberObj = member.getObjectives();
-            if (memberObj[0] > pointObj[0])
-                break;
-            if (dominates(memberObj, pointObj, pointObj.length) < 0)
-                return member;
-        }
-        return null;
     }
 
     @Override

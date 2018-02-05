@@ -4,6 +4,7 @@ import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
+import ru.ifmo.nds.impl.CDIndividual;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -141,7 +142,7 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
 
     @Nonnull
     @Override
-    public List<IIndividual> getRandomSolutions(int count) {
+    public List<CDIndividual> getRandomSolutions(int count) {
         if (count < 0) {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
@@ -151,13 +152,13 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         final int[] indices = ThreadLocalRandom.current()
                 .ints(actualCount * 3, 0, this.size.get())
                 .distinct().sorted().limit(actualCount).toArray();
-        final List<IIndividual> res = new ArrayList<>();
+        final List<CDIndividual> res = new ArrayList<>();
         int i = 0;
         int prevLevelsSizeSum = 0;
         for (INonDominationLevel level : populationSnapshot.getLevels()) {
             final int levelSize = level.getMembers().size();
             while (indices[i] - prevLevelsSizeSum < levelSize) {
-                res.add(level.getMembers().get(indices[i] - prevLevelsSizeSum));
+                res.add(level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum));
                 ++i;
             }
             prevLevelsSizeSum += levelSize;

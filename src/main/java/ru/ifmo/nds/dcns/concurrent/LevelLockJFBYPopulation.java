@@ -5,6 +5,7 @@ import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
+import ru.ifmo.nds.impl.CDIndividual;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -121,7 +122,7 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
 
     @Nonnull
     @Override
-    public List<IIndividual> getRandomSolutions(int count) {
+    public List<CDIndividual> getRandomSolutions(int count) {
         if (count < 0) {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
@@ -129,7 +130,7 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         return random.ints(actualCount * 3, 0, size.get()).distinct().limit(actualCount).mapToObj(i -> {
                     for (INonDominationLevel level : nonDominationLevels) {
                         if (i < level.getMembers().size()) {
-                            return level.getMembers().get(i);
+                            return level.getMembersWithCD().get(i);
                         } else {
                             i -= level.getMembers().size();
                         }
