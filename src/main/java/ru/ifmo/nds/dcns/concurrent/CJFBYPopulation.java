@@ -84,13 +84,22 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         final Object[] levels = nonDominationLevels.toArray();
         final List<INonDominationLevel> levelsSnapshot = Arrays.asList(new INonDominationLevel[levels.length]);
         for (int j = levels.length - 1; j >= 0; --j) { //Reverse iterator because elements may only move to latter levels, and we do not want any collisions
-            @SuppressWarnings("unchecked") final AtomicReference<LevelRef> levelRef =
+            @SuppressWarnings("unchecked") final AtomicReference<LevelRef> levelRefRef =
                     (AtomicReference<LevelRef>) levels[j];
-            final INonDominationLevel level = levelRef.get().level;
-            levelsSnapshot.set(j, level);
-            sizeSnapshot += level.getMembers().size();
+            final LevelRef levelRef = levelRefRef.get();
+            if (levelRef != null) {
+                final INonDominationLevel level = levelRef.level;
+                levelsSnapshot.set(j, level);
+                sizeSnapshot += level.getMembers().size();
+            }
         }
-        return new PopulationSnapshot(levelsSnapshot, sizeSnapshot);
+        final List<INonDominationLevel> rs = new ArrayList<>();
+        for (INonDominationLevel level : levelsSnapshot) {
+            if (level != null) {
+                rs.add(level);
+            }
+        }
+        return new PopulationSnapshot(rs, sizeSnapshot);
     }
 
     @Nullable
@@ -106,6 +115,9 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
             try {
                 final int lastLevelIndex = nonDominationLevels.size() - 1;
                 final LevelRef lastLevelRef = nonDominationLevels.get(lastLevelIndex).get();
+                if (lastLevelRef == null) {
+                    continue;
+                }
                 final INonDominationLevel lastLevel = lastLevelRef.level;
                 if (lastLevel.getMembers().size() <= 1) {
                     try {
@@ -150,7 +162,7 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         final PopulationSnapshot populationSnapshot = getLevelsSnapshot();
         final int actualCount = Math.min(count, populationSnapshot.getSize());
         final int[] indices = ThreadLocalRandom.current()
-                .ints(actualCount * 3, 0, actualCount)
+                .ints(actualCount * 3, 0, populationSnapshot.getSize())
                 .distinct().sorted().limit(actualCount).toArray();
         final List<CDIndividual> res = new ArrayList<>();
         int i = 0;
@@ -178,12 +190,19 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         int lastNonDominating = r + 1;
         while (l <= r) {
             final int test = (l + r) / 2;
-            if (!nonDominationLevels.get(test).get().level.dominatedByAnyPointOfThisLayer(point)) {
-                //Racy, but that's OK
-                lastNonDominating = test;
-                r = test - 1;
-            } else {
-                l = test + 1;
+            try {
+                final LevelRef levelRef = nonDominationLevels.get(test).get();
+                if (levelRef == null) {
+                    r--;
+                } else if (!levelRef.level.dominatedByAnyPointOfThisLayer(point)) {
+                    //Racy, but that's OK
+                    lastNonDominating = test;
+                    r = test - 1;
+                } else {
+                    l = test + 1;
+                }
+            } catch (ArrayIndexOutOfBoundsException e) {
+                r--;
             }
         }
 
@@ -217,47 +236,53 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         List<IIndividual> addends = new LinkedList<>();
         addends.add(originalAddend);
         while (!addends.isEmpty()) {
-            if (rank >= nonDominationLevels.size()) {
-                if (tryToAddLevels(addends, rank)) {
-                    if (firstModifiedLevelRank == null) {
-                        return rank;
-                    } else {
-                        return firstModifiedLevelRank;
-                    }
-                }
-            } else {
-                final LevelRef levelRef = nonDominationLevels.get(rank).get();
-                final INonDominationLevel level = levelRef.level;
-                if (ts > levelRef.modificationTs) {
-                    final INonDominationLevel.MemberAdditionResult mar = level.addMembers(addends);
-                    if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), mar.getModifiedLevel()))) {
+            try {
+                if (rank >= nonDominationLevels.size()) {
+                    if (tryToAddLevels(addends, rank)) {
                         if (firstModifiedLevelRank == null) {
-                            firstModifiedLevelRank = rank;
+                            return rank;
+                        } else {
+                            return firstModifiedLevelRank;
                         }
-                        ++rank;
-                        addends = mar.getEvictedMembers();
                     }
                 } else {
-                    final IIndividual[] allMembers = lexMerge(addends, level.getMembers());
-                    final int[] ranks = sorter.performNds(allMembers);
-                    final List<IIndividual> newCurrLevelMembers = new ArrayList<>();
-                    final List<IIndividual> nextAddends = new ArrayList<>();
-                    for (int i = 0; i < allMembers.length; ++i) {
-                        if (ranks[i] == 0) {
-                            newCurrLevelMembers.add(allMembers[i]);
-                        } else {
-                            nextAddends.add(allMembers[i]);
-                        }
+                    final LevelRef levelRef = nonDominationLevels.get(rank).get();
+                    if (levelRef == null) {
+                        continue;
                     }
-                    final INonDominationLevel newLevel = new JFBYNonDominationLevel(sorter, newCurrLevelMembers);
-                    if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
-                        if (firstModifiedLevelRank == null) {
-                            firstModifiedLevelRank = rank;
+                    final INonDominationLevel level = levelRef.level;
+                    if (ts > levelRef.modificationTs) {
+                        final INonDominationLevel.MemberAdditionResult mar = level.addMembers(addends);
+                        if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), mar.getModifiedLevel()))) {
+                            if (firstModifiedLevelRank == null) {
+                                firstModifiedLevelRank = rank;
+                            }
+                            ++rank;
+                            addends = mar.getEvictedMembers();
                         }
-                        addends = nextAddends;
-                        ++rank;
+                    } else {
+                        final IIndividual[] allMembers = lexMerge(addends, level.getMembers());
+                        final int[] ranks = sorter.performNds(allMembers);
+                        final List<IIndividual> newCurrLevelMembers = new ArrayList<>();
+                        final List<IIndividual> nextAddends = new ArrayList<>();
+                        for (int i = 0; i < allMembers.length; ++i) {
+                            if (ranks[i] == 0) {
+                                newCurrLevelMembers.add(allMembers[i]);
+                            } else {
+                                nextAddends.add(allMembers[i]);
+                            }
+                        }
+                        final INonDominationLevel newLevel = new JFBYNonDominationLevel(sorter, newCurrLevelMembers);
+                        if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
+                            if (firstModifiedLevelRank == null) {
+                                firstModifiedLevelRank = rank;
+                            }
+                            addends = nextAddends;
+                            ++rank;
+                        }
                     }
                 }
+            } catch (ArrayIndexOutOfBoundsException ignored) {
             }
         }
 
