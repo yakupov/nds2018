@@ -6,6 +6,7 @@ import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.util.QuickSelect;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -23,6 +24,8 @@ import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
 
 @ThreadSafe
 public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
+    private static final double DELETION_THRESHOLD = 1.2;
+
     private final List<Lock> levelLocks = new CopyOnWriteArrayList<>();
     private final Lock addLevelLock = new ReentrantLock();
     private final Lock removeLevelLock = new ReentrantLock();
@@ -72,31 +75,107 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         throw new UnsupportedOperationException("Explicit deletion of members not allowed");
     }
 
-    @SuppressWarnings("unused")
-    @Nullable
-    IIndividual intRemoveWorstV2() {
-        while (true) {
-            removeLevelLock.lock();
-            final int lastLevelIndex = nonDominationLevels.size() - 1;
-            final Lock lastLevelLock;
+    private int massRemoveWorst() {
+        if (size.get() > expectedPopSize * DELETION_THRESHOLD && removeLevelLock.tryLock()) {
             try {
-                lastLevelLock = acquireLock(lastLevelIndex);
-                addLevelLock.lock();
-                try {
+                final int toDelete = (int) (size.get() - expectedPopSize * DELETION_THRESHOLD);
+                int remaining = toDelete;
+                while (remaining > 0) {
+                    final int lastLevelIndex = nonDominationLevels.size() - 1;
+                    final Lock lastLevelLock;
+
+                    lastLevelLock = acquireLock(lastLevelIndex);
+                    addLevelLock.lock();
                     if (lastLevelLock != levelLocks.get(lastLevelIndex)
                             || lastLevelIndex != nonDominationLevels.size() - 1) {
                         lastLevelLock.unlock();
                         addLevelLock.unlock();
                         continue;
                     }
-                } catch (ArrayIndexOutOfBoundsException e) {
+
+                    try {
+                        final INonDominationLevel lastLevel = nonDominationLevels.get(lastLevelIndex);
+                        if (lastLevel.getMembers().size() <= remaining) {
+                            levelLocks.remove(lastLevelIndex);
+                            nonDominationLevels.remove(lastLevelIndex);
+                            if (lastLevel.getMembers().isEmpty()) {
+                                System.err.println("Empty last ND level! Levels = " + nonDominationLevels);
+                            } else {
+                                for (IIndividual individual : lastLevel.getMembers()) {
+                                    presentIndividuals.remove(individual);
+                                }
+                            }
+                            remaining -= lastLevel.getMembers().size();
+                        } else {
+                            final double[] cd = new double[lastLevel.getMembers().size()];
+                            int i = 0;
+                            for (CDIndividual cdIndividual : lastLevel.getMembersWithCD()) {
+                                cd[i++] = cdIndividual.getCrowdingDistance();
+                            }
+                            final double cdThreshold = new QuickSelect().getKthElement(cd, remaining);
+                            final List<IIndividual> newMembers = new ArrayList<>();
+                            for (CDIndividual cdIndividual : lastLevel.getMembersWithCD()) {
+                                if (remaining > 0 && cdIndividual.getCrowdingDistance() <= cdThreshold) {
+                                    presentIndividuals.remove(cdIndividual.getIndividual());
+                                    --remaining;
+                                } else {
+                                    newMembers.add(cdIndividual.getIndividual());
+                                }
+                            }
+                            if (newMembers.isEmpty()) {
+                                System.err.println("Empty members generated");
+                                System.out.println(cdThreshold);
+                                System.out.println(Arrays.toString(cd));
+                                throw new RuntimeException(remaining + "<" + lastLevel.getMembers().size());
+                            }
+                            final JFBYNonDominationLevel newLevel = new JFBYNonDominationLevel(sorter, newMembers);
+                            nonDominationLevels.set(lastLevelIndex, newLevel);
+                        }
+
+                    } finally {
+                        lastLevelLock.unlock();
+                        addLevelLock.unlock();
+                    }
+                }
+                if (toDelete > 0) {
+                    int tSize = size.get();
+                    while (!size.compareAndSet(tSize, tSize - toDelete)) {
+                        tSize = size.get();
+                    }
+                }
+                return toDelete;
+            } finally {
+                removeLevelLock.unlock();
+            }
+        }
+        return 0;
+    }
+
+    @SuppressWarnings("unused")
+    @Nullable
+    IIndividual intRemoveWorst() {
+        while (true) {
+            //removeLevelLock.lock();
+            final int lastLevelIndex = nonDominationLevels.size() - 1;
+            final Lock lastLevelLock;
+//            try {
+            lastLevelLock = acquireLock(lastLevelIndex);
+            addLevelLock.lock();
+            try {
+                if (lastLevelLock != levelLocks.get(lastLevelIndex)
+                        || lastLevelIndex != nonDominationLevels.size() - 1) {
                     lastLevelLock.unlock();
                     addLevelLock.unlock();
                     continue;
                 }
-            } finally {
-                removeLevelLock.unlock();
+            } catch (ArrayIndexOutOfBoundsException e) {
+                lastLevelLock.unlock();
+                addLevelLock.unlock();
+                continue;
             }
+//            } finally {
+//                removeLevelLock.unlock();
+//            }
             try {
                 try {
                     final INonDominationLevel lastLevel = nonDominationLevels.get(lastLevelIndex);
@@ -132,8 +211,8 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     }
 
     @Nullable
-    @Override
-    IIndividual intRemoveWorst() {
+        //@Override
+    IIndividual intRemoveWorst11() {
         while (true) {
             removeLevelLock.lock();
             try {
@@ -297,9 +376,11 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
             }
         }
 
-        if (size.incrementAndGet() > expectedPopSize) {
-            intRemoveWorst();
-        }
+//        if (size.incrementAndGet() > expectedPopSize) {
+//            intRemoveWorst();
+//        }
+        size.incrementAndGet();
+        massRemoveWorst();
 
         return rank;
     }

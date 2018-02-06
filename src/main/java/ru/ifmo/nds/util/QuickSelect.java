@@ -15,7 +15,6 @@ public class QuickSelect {
         return getKthElement(values, values.length / 2);
     }
 
-    @SuppressWarnings("WeakerAccess") //RFU
     public double getKthElement(double[] values, int k) {
         if (values == null || k >= values.length) {
             throw new IllegalArgumentException("Null array or the k is too large");
