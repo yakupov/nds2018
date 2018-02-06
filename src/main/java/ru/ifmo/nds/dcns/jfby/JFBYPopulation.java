@@ -11,7 +11,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static ru.ifmo.nds.util.Utils.getWorstCDIndividual;
 import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
@@ -102,18 +101,24 @@ public class JFBYPopulation implements IManagedPopulation {
         if (count < 0) {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
-        final int actualCount = Math.min(count, size());
-        return random.ints(actualCount * 3, 0, size).distinct().limit(actualCount).mapToObj(i -> {
-                    for (INonDominationLevel level : nonDominationLevels) {
-                        if (i < level.getMembers().size()) {
-                            return level.getMembersWithCD().get(i);
-                        } else {
-                            i -= level.getMembers().size();
-                        }
-                    }
-                    throw new RuntimeException("Failed to get individual number " + i + ", levels: " + nonDominationLevels);
-                }
-        ).collect(Collectors.toList());
+
+        final int actualCount = Math.min(count, size);
+        final int[] indices = random
+                .ints(actualCount * 3, 0, size)
+                .distinct().sorted().limit(actualCount).toArray();
+        final List<CDIndividual> res = new ArrayList<>();
+        int i = 0;
+        int prevLevelsSizeSum = 0;
+        for (INonDominationLevel level : nonDominationLevels) {
+            final int levelSize = level.getMembers().size();
+            while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
+                res.add(level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum));
+                ++i;
+            }
+            prevLevelsSizeSum += levelSize;
+        }
+
+        return res;
     }
 
     @Override
