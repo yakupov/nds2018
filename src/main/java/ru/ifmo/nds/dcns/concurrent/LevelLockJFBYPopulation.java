@@ -78,7 +78,7 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     private int massRemoveWorst() {
         if (size.get() > expectedPopSize * DELETION_THRESHOLD && removeLevelLock.tryLock()) {
             try {
-                final int toDelete = (int) (size.get() - expectedPopSize * DELETION_THRESHOLD);
+                final int toDelete = (int) (size.get() - expectedPopSize);
                 int remaining = toDelete;
                 while (remaining > 0) {
                     final int lastLevelIndex = nonDominationLevels.size() - 1;
