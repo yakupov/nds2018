@@ -4,6 +4,8 @@ import ru.ifmo.nds.AbstractNonDominationLevel;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
+import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.util.ObjectiveComparator;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
@@ -47,13 +49,125 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
             else
                 nextLevel.add(rp.getPop()[i]);
         }
-        return new MemberAdditionResult(nextLevel, new JFBYNonDominationLevel(sorter, currLevel));
+        final JFBYNonDominationLevel modifiedLevel = new JFBYNonDominationLevel(sorter, currLevel);
+
+        if (this.sortedObjectives != null && this.sortedObjectives.size() > 3) {
+            final int objCount = addends.get(0).getObjectives().length;
+            boolean fullRecalc = false;
+            for (int obj = 0; obj < objCount; ++obj) {
+                double min = Double.POSITIVE_INFINITY;
+                double max = Double.NEGATIVE_INFINITY;
+                for (IIndividual addend : addends) {
+                    min = Math.min(min, addend.getObjectives()[obj]);
+                    max = Math.max(max, addend.getObjectives()[obj]);
+                }
+                final List<Double> sortedObj = sortedObjectives.get(obj);
+                if (sortedObj.get(0) > min || sortedObj.get(sortedObj.size() - 1) < max) {
+                    fullRecalc = true;
+                    break;
+                }
+            }
+
+            if (!fullRecalc) {
+                int cdIndCtr = 0;
+                int addendCtr = 0;
+                final List<CDIndividual> evaluatedAddends = new ArrayList<>();
+                for (IIndividual ind : modifiedLevel.getMembers()) {
+                    if (addendCtr < addends.size() && ind == addends.get(addendCtr)) {
+                        double cd = 0;
+                        for (int obj = 0; obj < objCount; ++obj) {
+                            final List<Double> sortedObj = sortedObjectives.get(obj);
+                            final int idx = Collections.binarySearch(sortedObj, ind.getObjectives()[obj]);
+                            if (idx < 0) {
+                                try {
+                                    cd += (sortedObj.get(-idx - 1) - sortedObj.get(-idx - 2)) /
+                                            (sortedObj.get(sortedObj.size() - 1) - sortedObj.get(0));
+                                } catch (Throwable t) {
+                                    System.out.println(idx);
+                                    System.out.println(sortedObj);
+                                    System.out.println(ind.getObjectives()[obj]);
+                                    throw t;
+                                }
+                            }
+                        }
+                        evaluatedAddends.add(new CDIndividual(ind, cd));
+                        addendCtr++;
+                    } else {
+                        boolean added = false;
+                        while (cdIndCtr < cdMembers.size() && !added) {
+                            if (ind == cdMembers.get(cdIndCtr).getIndividual()) {
+                                added = true;
+                            }
+                            cdIndCtr++;
+                        }
+                        if (!added) {
+                            throw new RuntimeException("Impossible: \n" +
+                                    ind + "\n" +
+                                    addends + "\n" +
+                                    cdMembers.stream().map(CDIndividual::getIndividual).collect(Collectors.toList()) + "\n" +
+                                    modifiedLevel.getMembers());
+                        }
+                    }
+                }
+
+                cdIndCtr = 0;
+                addendCtr = 0;
+                final List<CDIndividual> newCDIndividuals = new ArrayList<>();
+                while (newCDIndividuals.size() < modifiedLevel.getMembers().size()) {
+                    for (IIndividual ind : modifiedLevel.getMembers()) {
+                        if (addendCtr < addends.size() && ind == addends.get(addendCtr)) {
+                            newCDIndividuals.add(evaluatedAddends.get(addendCtr));
+                            addendCtr++;
+                        } else {
+                            boolean added = false;
+                            while (cdIndCtr < cdMembers.size() && !added) {
+                                if (ind == cdMembers.get(cdIndCtr).getIndividual()) {
+                                    newCDIndividuals.add(cdMembers.get(cdIndCtr));
+                                    added = true;
+                                }
+                                cdIndCtr++;
+                            }
+                        }
+                    }
+                }
+
+                final List<IIndividual> addendsCopy = new ArrayList<>(addends);
+                final List<List<Double>> newSortedObjectives = new ArrayList<>();
+                for (int obj = 0; obj < objCount; ++obj) {
+                    final List<Double> sortedObj = sortedObjectives.get(obj);
+                    final List<Double> newList = new ArrayList<>();
+                    addendsCopy.sort(new ObjectiveComparator(obj));
+                    addendCtr = 0;
+                    cdIndCtr = 0;
+                    while (newList.size() < modifiedLevel.getMembers().size()) {
+                        if (addendCtr >= addendsCopy.size()) {
+                            newList.add(sortedObj.get(cdIndCtr));
+                            ++cdIndCtr;
+                        } else if (cdIndCtr >= sortedObj.size()) {
+                            newList.add(addendsCopy.get(addendCtr).getObjectives()[obj]);
+                            ++addendCtr;
+                        } else if (sortedObj.get(cdIndCtr) <= addendsCopy.get(addendCtr).getObjectives()[obj]) {
+                            newList.add(sortedObj.get(cdIndCtr));
+                            ++cdIndCtr;
+                        } else {
+                            newList.add(addendsCopy.get(addendCtr).getObjectives()[obj]);
+                            ++addendCtr;
+                        }
+                    }
+                    newSortedObjectives.add(newList);
+                }
+
+                modifiedLevel.sortedObjectives = newSortedObjectives;
+                modifiedLevel.cdMembers = newCDIndividuals;
+            }
+        }
+        return new MemberAdditionResult(nextLevel, modifiedLevel);
     }
 
     @Override
     public boolean dominatedByAnyPointOfThisLayer(@Nonnull IIndividual point) {
         final double[] pointObj = point.getObjectives();
-        for (IIndividual member: members) {
+        for (IIndividual member : members) {
             final double[] memberObj = member.getObjectives();
             if (memberObj[0] > pointObj[0])
                 break;

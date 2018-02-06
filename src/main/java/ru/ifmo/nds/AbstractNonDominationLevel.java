@@ -1,6 +1,7 @@
 package ru.ifmo.nds;
 
 import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.util.Utils;
 
 import java.util.Collections;
 import java.util.List;
@@ -8,7 +9,8 @@ import java.util.List;
 import static ru.ifmo.nds.util.Utils.calculateCrowdingDistances;
 
 public abstract class AbstractNonDominationLevel implements INonDominationLevel {
-    private volatile List<CDIndividual> cdMembers = null;
+    protected volatile List<CDIndividual> cdMembers = null;
+    protected volatile List<List<Double>> sortedObjectives = null;
 
     @Override
     public List<CDIndividual> getMembersWithCD() {
@@ -19,8 +21,9 @@ public abstract class AbstractNonDominationLevel implements INonDominationLevel 
                     if (members.isEmpty()) {
                         cdMembers = Collections.emptyList();
                     } else {
-                        cdMembers = Collections.unmodifiableList(
-                                calculateCrowdingDistances(members, members.get(0).getObjectives().length));
+                        final Utils.CrowDistances cds = calculateCrowdingDistances(members, members.get(0).getObjectives().length);
+                        cdMembers = Collections.unmodifiableList(cds.getIndividuals());
+                        sortedObjectives = Collections.unmodifiableList(cds.getSortedObjectives());
                     }
                 }
             }
