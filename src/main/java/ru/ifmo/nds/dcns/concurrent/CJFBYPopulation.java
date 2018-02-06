@@ -330,6 +330,9 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
                     }
                 } else {
                     final LevelRef levelRef = nonDominationLevels.get(rank).get();
+                    if (levelRef == null) {
+                        continue;
+                    }
                     final INonDominationLevel level = levelRef.level;
                     final IIndividual[] allMembers = lexMerge(addends, level.getMembers());
                     final int[] ranks = sorter.performNds(allMembers);

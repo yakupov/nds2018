@@ -184,7 +184,9 @@ public class JFBYPopulation implements IManagedPopulation {
             }
         }
 
-        ++size;
+        if (++size > expectedPopSize) {
+            intRemoveWorst();
+        }
         return rank;
     }
 
