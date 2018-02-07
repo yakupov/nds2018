@@ -56,9 +56,9 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
             for (int obj = 0; obj < objCount; ++obj) {
                 double min = Double.POSITIVE_INFINITY;
                 double max = Double.NEGATIVE_INFINITY;
-                for (IIndividual addend : addends) {
-                    min = Math.min(min, addend.getObjectives()[obj]);
-                    max = Math.max(max, addend.getObjectives()[obj]);
+                for (IIndividual member : modifiedLevel.getMembers()) {
+                    min = Math.min(min, member.getObjectives()[obj]);
+                    max = Math.max(max, member.getObjectives()[obj]);
                 }
                 mins.add(min);
                 maxs.add(max);
@@ -109,7 +109,7 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
             }
 
             final List<CDIndividual> rs = new ArrayList<>();
-            for (IIndividual member : members) {
+            for (IIndividual member : modifiedLevel.getMembers()) {
                 rs.add(new CDIndividual(member, cdMap.get(member)));
             }
 
