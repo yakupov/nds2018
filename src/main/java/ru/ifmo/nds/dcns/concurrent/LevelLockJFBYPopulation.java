@@ -230,8 +230,8 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         for (INonDominationLevel level : levelsSnapshot) {
             final int levelSize = level.getMembers().size();
             while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
-                //System.out.println(level.getMembers().size() + "==" + level.getMembersWithCD().size());
-                res.add(level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum));
+                final CDIndividual cdIndividual = level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum);
+                res.add(cdIndividual);
                 ++i;
             }
             prevLevelsSizeSum += levelSize;
@@ -326,9 +326,6 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
             }
         }
 
-//        if (size.incrementAndGet() > expectedPopSize) {
-//            intRemoveWorst();
-//        }
         size.incrementAndGet();
         massRemoveWorst();
 

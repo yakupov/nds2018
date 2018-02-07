@@ -48,7 +48,14 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
         }
         final JFBYNonDominationLevel modifiedLevel = new JFBYNonDominationLevel(sorter, currLevel);
 
-        if (this.sortedObjectives != null && this.sortedObjectives.size() > 3) {
+        //TODO: maybe add some laziness, passing the following data to the constructor
+//        modifiedLevel.prevSortedObjectives = this.sortedObjectives;
+//        modifiedLevel.addends = addends;
+//        modifiedLevel.removed = nextLevel;
+        // And processing it in getMembersWithCD().
+        // Downside: if the next level will be modified before calling getMembersWichCD for it, this data will be lost,  and full calc will be needed
+
+        if (this.sortedObjectives != null) {
             final int objCount = addends.get(0).getObjectives().length;
 
             final List<Double> mins = new ArrayList<>();
@@ -115,8 +122,6 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
 
             modifiedLevel.cdMembers = rs;
             modifiedLevel.sortedObjectives = newSortedObjectives;
-        } else if (modifiedLevel.getMembers().size() < 10) { //Explicitly calculate CD for small levels. Hope for lesser lock contention
-            modifiedLevel.getMembersWithCD();
         }
 
         return new MemberAdditionResult(nextLevel, modifiedLevel);
