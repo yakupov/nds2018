@@ -115,6 +115,8 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
 
             modifiedLevel.cdMembers = rs;
             modifiedLevel.sortedObjectives = newSortedObjectives;
+        } else if (modifiedLevel.getMembers().size() < 10) { //Explicitly calculate CD for small levels. Hope for lesser lock contention
+            modifiedLevel.getMembersWithCD();
         }
 
         return new MemberAdditionResult(nextLevel, modifiedLevel);
