@@ -6,6 +6,7 @@ import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.impl.CDIndividualWithRank;
 import ru.ifmo.nds.util.QuickSelect;
 
 import javax.annotation.Nonnull;
@@ -210,7 +211,7 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
 
     @Nonnull
     @Override
-    public List<CDIndividual> getRandomSolutions(int count) {
+    public List<CDIndividualWithRank> getRandomSolutions(int count) {
         if (count < 0) {
             throw new IllegalArgumentException("Negative number of random solutions requested");
         }
@@ -224,17 +225,19 @@ public class LevelLockJFBYPopulation extends AbstractConcurrentJFBYPopulation {
         final int[] indices = ThreadLocalRandom.current()
                 .ints(actualCount * 3, 0, popSize)
                 .distinct().sorted().limit(actualCount).toArray();
-        final List<CDIndividual> res = new ArrayList<>();
+        final List<CDIndividualWithRank> res = new ArrayList<>();
         int i = 0;
         int prevLevelsSizeSum = 0;
+        int rank = 0;
         for (INonDominationLevel level : levelsSnapshot) {
             final int levelSize = level.getMembers().size();
             while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
                 final CDIndividual cdIndividual = level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum);
-                res.add(cdIndividual);
+                res.add(new CDIndividualWithRank(cdIndividual.getIndividual(), cdIndividual.getCrowdingDistance(), rank));
                 ++i;
             }
             prevLevelsSizeSum += levelSize;
+            rank++;
         }
 
         return res;

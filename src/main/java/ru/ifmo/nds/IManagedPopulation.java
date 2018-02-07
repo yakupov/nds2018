@@ -1,6 +1,6 @@
 package ru.ifmo.nds;
 
-import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.impl.CDIndividualWithRank;
 import ru.itmo.nds.util.RankedIndividual;
 import ru.itmo.nds.util.RankedPopulation;
 
@@ -33,7 +33,7 @@ public interface IManagedPopulation extends Cloneable {
      * @return list with min(population size, count) random solutions
      */
     @Nonnull
-    List<CDIndividual> getRandomSolutions(int count);
+    List<CDIndividualWithRank> getRandomSolutions(int count);
 
     int size();
 

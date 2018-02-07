@@ -3,7 +3,7 @@ package ru.ifmo.nds.dcns.jfby;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.impl.CDIndividualWithRank;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
@@ -42,7 +42,7 @@ public class TotalSyncJFBYPopulation extends JFBYPopulation {
 
     @Nonnull
     @Override
-    public synchronized List<CDIndividual> getRandomSolutions(int count) {
+    public synchronized List<CDIndividualWithRank> getRandomSolutions(int count) {
         return super.getRandomSolutions(count);
     }
 
