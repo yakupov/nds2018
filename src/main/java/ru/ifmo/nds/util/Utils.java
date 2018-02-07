@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class Utils {
     /**
@@ -66,15 +65,15 @@ public class Utils {
     }
 
     public static class CrowDistances {
-        private final List<List<Double>> sortedObjectives;
+        private final List<List<IIndividual>> sortedObjectives;
         private final List<CDIndividual> individuals;
 
-        public CrowDistances(List<List<Double>> sortedObjectives, List<CDIndividual> individuals) {
+        CrowDistances(List<List<IIndividual>> sortedObjectives, List<CDIndividual> individuals) {
             this.sortedObjectives = sortedObjectives;
             this.individuals = individuals;
         }
 
-        public List<List<Double>> getSortedObjectives() {
+        public List<List<IIndividual>> getSortedObjectives() {
             return sortedObjectives;
         }
 
@@ -89,13 +88,12 @@ public class Utils {
         final List<IIndividual> frontCopy = new ArrayList<>(members.size());
         frontCopy.addAll(members);
 
-        final List<List<Double>> sortedObj = new ArrayList<>(numberOfObjectives);
+        final List<List<IIndividual>> sortedObj = new ArrayList<>(numberOfObjectives);
 
         final Map<IIndividual, Double> cdMap = new IdentityHashMap<>();
         for (int i = 0; i < numberOfObjectives; i++) {
             frontCopy.sort(new ObjectiveComparator(i));
-            final int finalI = i;
-            sortedObj.add(frontCopy.stream().map(s -> s.getObjectives()[finalI]).collect(Collectors.toList()));
+            sortedObj.add(new ArrayList<>(frontCopy));
 
             cdMap.put(frontCopy.get(0), Double.POSITIVE_INFINITY);
             cdMap.put(frontCopy.get(n - 1), Double.POSITIVE_INFINITY);

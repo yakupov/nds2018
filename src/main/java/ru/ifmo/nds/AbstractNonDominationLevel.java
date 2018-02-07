@@ -10,7 +10,7 @@ import static ru.ifmo.nds.util.Utils.calculateCrowdingDistances;
 
 public abstract class AbstractNonDominationLevel implements INonDominationLevel {
     protected volatile List<CDIndividual> cdMembers = null;
-    protected volatile List<List<Double>> sortedObjectives = null;
+    protected volatile List<List<IIndividual>> sortedObjectives = null;
 
     @Override
     public List<CDIndividual> getMembersWithCD() {
