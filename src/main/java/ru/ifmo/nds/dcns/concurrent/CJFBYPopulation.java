@@ -1,19 +1,23 @@
 package ru.ifmo.nds.dcns.concurrent;
 
 import ru.ifmo.nds.IIndividual;
+import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
+import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.CDIndividual;
-import ru.ifmo.nds.impl.CDIndividualWithRank;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -21,10 +25,12 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
-import static ru.ifmo.nds.util.Utils.*;
+import static ru.ifmo.nds.util.Utils.getWorstCDIndividual;
+import static ru.ifmo.nds.util.Utils.lexCompare;
+import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
 
 @ThreadSafe
-public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
+public class CJFBYPopulation implements IManagedPopulation {
     private class LevelRef {
         final long modificationTs;
         final INonDominationLevel level;
@@ -36,7 +42,7 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     }
 
     private final CopyOnWriteArrayList<AtomicReference<LevelRef>> nonDominationLevels;
-    private final AtomicLong time = new AtomicLong(0); //TODO: process overflow
+    private final AtomicLong time = new AtomicLong(0); //TODO later: process overflow
 
     private final Map<IIndividual, Boolean> presentIndividuals = new ConcurrentHashMap<>();
     private final Lock addRemoveLevelLock = new ReentrantLock();
@@ -76,11 +82,7 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
 
     @Override
     @Nonnull
-    public List<INonDominationLevel> getLevels() {
-        return getLevelsSnapshot().getLevels();
-    }
-
-    private PopulationSnapshot getLevelsSnapshot() {
+    public PopulationSnapshot getSnapshot() {
         int sizeSnapshot = 0;
         final Object[] levels = nonDominationLevels.toArray();
         final List<INonDominationLevel> levelsSnapshot = Arrays.asList(new INonDominationLevel[levels.length]);
@@ -104,13 +106,6 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
     }
 
     @Nullable
-    @Override
-    public IIndividual removeWorst() {
-        throw new UnsupportedOperationException("Explicit deletion of members not allowed");
-    }
-
-    @Nullable
-    @Override
     IIndividual intRemoveWorst() {
         while (true) {
             try {
@@ -151,36 +146,6 @@ public class CJFBYPopulation extends AbstractConcurrentJFBYPopulation {
                 //retry
             }
         }
-    }
-
-    @Nonnull
-    @Override
-    public List<CDIndividualWithRank> getRandomSolutions(int count) {
-        if (count < 0) {
-            throw new IllegalArgumentException("Negative number of random solutions requested");
-        }
-
-        final PopulationSnapshot populationSnapshot = getLevelsSnapshot();
-        final int actualCount = Math.min(count, populationSnapshot.getSize());
-        final int[] indices = ThreadLocalRandom.current()
-                .ints(actualCount * 3, 0, populationSnapshot.getSize())
-                .distinct().sorted().limit(actualCount).toArray();
-        final List<CDIndividualWithRank> res = new ArrayList<>();
-        int i = 0;
-        int prevLevelsSizeSum = 0;
-        int rank = 0;
-        for (INonDominationLevel level : populationSnapshot.getLevels()) {
-            final int levelSize = level.getMembers().size();
-            while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
-                final CDIndividual cdIndividual = level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum);
-                res.add(new CDIndividualWithRank(cdIndividual.getIndividual(), cdIndividual.getCrowdingDistance(), rank));
-                ++i;
-            }
-            prevLevelsSizeSum += levelSize;
-            ++rank;
-        }
-
-        return res;
     }
 
     @Override

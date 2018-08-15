@@ -7,6 +7,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 public class TreeNode extends AbstractNonDominationLevel implements INode {
     @Nonnull
@@ -25,12 +26,22 @@ public class TreeNode extends AbstractNonDominationLevel implements INode {
                     @Nonnull INode right,
                     int dimension,
                     double split) {
+        super(TreeNode.concat(ArrayList::new, left.getMembers(), right.getMembers())); //FIXME!!!!!
         this.left = left;
         this.right = right;
         this.dimension = dimension;
         this.split = split;
 
         this.size = left.size() + right.size();
+    }
+
+    @SafeVarargs
+    private static <T> List<T> concat(@Nonnull Supplier<List<T>> sup, @Nonnull List<T>... lists) {
+        final List<T> rs = sup.get();
+        for (List<T> list : lists) {
+            rs.addAll(list);
+        }
+        return rs;
     }
 
     @Override
@@ -114,13 +125,11 @@ public class TreeNode extends AbstractNonDominationLevel implements INode {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("TreeNode{");
-        sb.append("left=").append(left);
-        sb.append(", right=").append(right);
-        sb.append(", dimension=").append(dimension);
-        sb.append(", split=").append(split);
-        sb.append(", size=").append(size);
-        sb.append('}');
-        return sb.toString();
+        return "TreeNode{" + "left=" + left +
+                ", right=" + right +
+                ", dimension=" + dimension +
+                ", split=" + split +
+                ", size=" + size +
+                '}';
     }
 }

@@ -2,12 +2,14 @@ package ru.ifmo.nds.ndt;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
-import ru.ifmo.nds.impl.CDIndividual;
-import ru.ifmo.nds.impl.CDIndividualWithRank;
+import ru.ifmo.nds.INonDominationLevel;
+import ru.ifmo.nds.PopulationSnapshot;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
 
@@ -29,23 +31,6 @@ public class NdtManagedPopulation implements IManagedPopulation {
     public NdtManagedPopulation(Comparator<IIndividual> dominationComparator, INdtSettings ndtSettings) {
         this.dominationComparator = dominationComparator;
         this.ndtSettings = ndtSettings;
-    }
-
-    private int determineRank(IIndividual point) {
-        int l = 0;
-        int r = ndLayers.size() - 1;
-        int lastNonDominating = r + 1;
-        while (l <= r) {
-            final int test = (l + r) / 2;
-            if (!ndLayers.get(test).dominatedByAnyPointOfThisLayer(point)) {
-                lastNonDominating = test;
-                r = test - 1;
-            } else {
-                l = test + 1;
-            }
-        }
-
-        return lastNonDominating;
     }
 
     @Override
@@ -84,20 +69,10 @@ public class NdtManagedPopulation implements IManagedPopulation {
 
     @Nonnull
     @Override
-    public List<INode> getLevels() {
-        return ndLayers;
-    }
-
-    @Nullable
-    @Override
-    public IIndividual removeWorst() {
-        throw new RuntimeException("Not supported yet");
-    }
-
-    @Nonnull
-    @Override
-    public List<CDIndividualWithRank> getRandomSolutions(int count) {
-        throw new RuntimeException("Not supported yet");
+    public PopulationSnapshot getSnapshot() {
+        @SuppressWarnings("unchecked")
+        final List<INonDominationLevel> levels = (List<INonDominationLevel>) ((List) ndLayers);
+        return new PopulationSnapshot(levels, size);
     }
 
     @Override

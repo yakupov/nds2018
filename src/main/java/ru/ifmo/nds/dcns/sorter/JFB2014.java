@@ -1,6 +1,7 @@
 package ru.ifmo.nds.dcns.sorter;
 
 import ru.ifmo.nds.IIndividual;
+import ru.ifmo.nds.util.AscLexSortComparator;
 import ru.ifmo.nds.util.QuickSelect;
 import ru.itmo.nds.util.RankedPopulation;
 
@@ -118,17 +119,7 @@ public class JFB2014 { //TODO: extract interface
         if (population == null || population.length == 0)
             return new int[0];
 
-        Arrays.sort(population, (o1, o2) -> {
-            final double[] o1Obj = o1.getObjectives();
-            final double[] o2Obj = o2.getObjectives();
-            for (int i = 0; i < o1Obj.length; ++i) {
-                if (o1Obj[i] < o2Obj[i])
-                    return -1;
-                else if (o1Obj[i] > o2Obj[i])
-                    return 1;
-            }
-            return 0;
-        });
+        Arrays.sort(population, AscLexSortComparator.getInstance());
 
         final int[] ranks = new int[population.length];
         final int k = population[0].getObjectives().length;
@@ -364,9 +355,7 @@ public class JFB2014 { //TODO: extract interface
                               List<Integer> lSet,
                               List<Integer> hSet,
                               int level) {
-        if (debugEnabled) {
-            assert (pop.length == ranks.length);
-        }
+        assert !debugEnabled || (pop.length == ranks.length);
 
         if (traceToStdout) {
             logToStdout(level, ("NDHelperB. K = " + k + ", l = " + lSet + ", h = " + hSet));
@@ -453,9 +442,7 @@ public class JFB2014 { //TODO: extract interface
                    int[] ranks,
                    List<Integer> lSet,
                    List<Integer> hSet) {
-        if (debugEnabled) {
-            assert (pop.length == ranks.length);
-        }
+        assert !debugEnabled || (pop.length == ranks.length);
 
         final TreeSet<IndexedIndividual> secondCoordSet = new TreeSet<>();
         final Map<Integer, Integer> rankToIndex = new HashMap<>();

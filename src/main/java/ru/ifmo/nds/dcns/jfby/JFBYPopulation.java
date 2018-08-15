@@ -3,15 +3,18 @@ package ru.ifmo.nds.dcns.jfby;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.INonDominationLevel;
+import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.CDIndividual;
-import ru.ifmo.nds.impl.CDIndividualWithRank;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static ru.ifmo.nds.util.Utils.getWorstCDIndividual;
 import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
@@ -24,7 +27,6 @@ public class JFBYPopulation implements IManagedPopulation {
 
     private final Map<IIndividual, Boolean> presentIndividuals = new HashMap<>();
 
-    private final Random random = new Random(System.nanoTime());
     private final JFB2014 sorter;
 
     private int lastNumberOfMovements = 0;
@@ -61,14 +63,8 @@ public class JFBYPopulation implements IManagedPopulation {
 
     @Override
     @Nonnull
-    public List<INonDominationLevel> getLevels() {
-        return Collections.unmodifiableList(nonDominationLevels);
-    }
-
-    @Nullable
-    @Override
-    public IIndividual removeWorst() {
-        throw new UnsupportedOperationException("Explicit deletion of members not allowed");
+    public PopulationSnapshot getSnapshot() {
+        return new PopulationSnapshot(Collections.unmodifiableList(nonDominationLevels), size);
     }
 
     @Nullable
@@ -96,55 +92,9 @@ public class JFBYPopulation implements IManagedPopulation {
         }
     }
 
-    @Nonnull
-    @Override
-    public List<CDIndividualWithRank> getRandomSolutions(int count) {
-        if (count < 0) {
-            throw new IllegalArgumentException("Negative number of random solutions requested");
-        }
-
-        final int actualCount = Math.min(count, size);
-        final int[] indices = random
-                .ints(actualCount * 3, 0, size)
-                .distinct().sorted().limit(actualCount).toArray();
-        final List<CDIndividualWithRank> res = new ArrayList<>();
-        int i = 0;
-        int prevLevelsSizeSum = 0;
-        int rank = 0;
-        for (INonDominationLevel level : nonDominationLevels) {
-            final int levelSize = level.getMembers().size();
-            while (i < actualCount && indices[i] - prevLevelsSizeSum < levelSize) {
-                final CDIndividual cdIndividual = level.getMembersWithCD().get(indices[i] - prevLevelsSizeSum);
-                res.add(new CDIndividualWithRank(cdIndividual.getIndividual(), cdIndividual.getCrowdingDistance(), rank));
-                ++i;
-            }
-            prevLevelsSizeSum += levelSize;
-            rank++;
-        }
-
-        return res;
-    }
-
     @Override
     public int size() {
         return size;
-    }
-
-    private int determineRank(IIndividual point) {
-        int l = 0;
-        int r = nonDominationLevels.size() - 1;
-        int lastNonDominating = r + 1;
-        while (l <= r) {
-            final int test = (l + r) / 2;
-            if (!nonDominationLevels.get(test).dominatedByAnyPointOfThisLayer(point)) {
-                lastNonDominating = test;
-                r = test - 1;
-            } else {
-                l = test + 1;
-            }
-        }
-
-        return lastNonDominating;
     }
 
     @Override
@@ -202,7 +152,7 @@ public class JFBYPopulation implements IManagedPopulation {
     public JFBYPopulation clone() {
         final JFBYPopulation copy = new JFBYPopulation(nonDominationLevels, sorter, expectedPopSize);
         for (INonDominationLevel level : nonDominationLevels) {
-            copy.getLevels().add(level.copy());
+            copy.getSnapshot().getLevels().add(level.copy());
         }
         return copy;
     }

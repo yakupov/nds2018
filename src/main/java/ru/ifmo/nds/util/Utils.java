@@ -85,11 +85,12 @@ public class Utils {
     public static CrowDistances calculateCrowdingDistances(@Nonnull List<IIndividual> members, int numberOfObjectives) {
         final int n = members.size();
 
-        final List<IIndividual> frontCopy = new ArrayList<>(members.size());
+        final List<IIndividual> frontCopy = new ArrayList<>(n);
         frontCopy.addAll(members);
 
         final List<List<IIndividual>> sortedObj = new ArrayList<>(numberOfObjectives);
 
+        //TODO: store individuals, sorted by each objective, and recalc CD on level modification
         final Map<IIndividual, Double> cdMap = new IdentityHashMap<>();
         for (int i = 0; i < numberOfObjectives; i++) {
             frontCopy.sort(new ObjectiveComparator(i));

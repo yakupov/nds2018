@@ -23,7 +23,19 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
     @Nonnull
     private final List<IIndividual> members;
 
-    public JFBYNonDominationLevel(@Nonnull JFB2014 sorter, @Nonnull List<IIndividual> members) {
+    @Deprecated
+    public JFBYNonDominationLevel(@Nonnull JFB2014 sorter,
+                                  @Nonnull List<IIndividual> members) {
+        super(members);
+        this.sorter = sorter;
+        this.members = Collections.unmodifiableList(members);
+    }
+
+    public JFBYNonDominationLevel(@Nonnull JFB2014 sorter,
+                                  @Nonnull List<IIndividual> members,
+                                  List<List<IIndividual>> sortedObjectives,
+                                  List<CDIndividual> cdMembers) {
+        super(cdMembers, sortedObjectives);
         this.sorter = sorter;
         this.members = Collections.unmodifiableList(members);
     }
@@ -46,7 +58,6 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
             else
                 nextLevel.add(rp.getPop()[i]);
         }
-        final JFBYNonDominationLevel modifiedLevel = new JFBYNonDominationLevel(sorter, currLevel);
 
         //TODO: maybe add some laziness, passing the following data to the constructor
 //        modifiedLevel.prevSortedObjectives = this.sortedObjectives;
@@ -55,74 +66,72 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
         // And processing it in getMembersWithCD().
         // Downside: if the next level will be modified before calling getMembersWichCD for it, this data will be lost,  and full calc will be needed
 
-        if (this.sortedObjectives != null) {
-            final int objCount = addends.get(0).getObjectives().length;
+        final int objCount = addends.get(0).getObjectives().length;
 
-            final List<Double> mins = new ArrayList<>();
-            final List<Double> maxs = new ArrayList<>();
-            for (int obj = 0; obj < objCount; ++obj) {
-                double min = Double.POSITIVE_INFINITY;
-                double max = Double.NEGATIVE_INFINITY;
-                for (IIndividual member : modifiedLevel.getMembers()) {
-                    min = Math.min(min, member.getObjectives()[obj]);
-                    max = Math.max(max, member.getObjectives()[obj]);
-                }
-                mins.add(min);
-                maxs.add(max);
+        final List<Double> mins = new ArrayList<>();
+        final List<Double> maxs = new ArrayList<>();
+        for (int obj = 0; obj < objCount; ++obj) {
+            double min = Double.POSITIVE_INFINITY;
+            double max = Double.NEGATIVE_INFINITY;
+            for (IIndividual member : currLevel) {
+                min = Math.min(min, member.getObjectives()[obj]);
+                max = Math.max(max, member.getObjectives()[obj]);
             }
-
-            final Set<IIndividual> removed = new HashSet<>(nextLevel);
-            final Map<IIndividual, Double> cdMap = new HashMap<>();
-            final List<List<IIndividual>> newSortedObjectives = new ArrayList<>();
-            for (int obj = 0; obj < objCount; ++obj) {
-                final List<IIndividual> sortedAddends = new ArrayList<>(addends);
-                final ObjectiveComparator comparator = new ObjectiveComparator(obj);
-                sortedAddends.sort(comparator);
-
-                final List<IIndividual> newSortedObjective = new ArrayList<>();
-                final List<IIndividual> oldSortedObjective = sortedObjectives.get(obj);
-                int cAddends = 0;
-                int cOldSorted = 0;
-                while (newSortedObjective.size() < modifiedLevel.getMembers().size()) {
-                    if (cOldSorted >= oldSortedObjective.size()) {
-                        newSortedObjective.add(sortedAddends.get(cAddends++));
-                    } else if (cAddends >= sortedAddends.size()) {
-                        final IIndividual individual = oldSortedObjective.get(cOldSorted);
-                        if (!removed.contains(individual)) {
-                            newSortedObjective.add(individual);
-                        }
-                        ++cOldSorted;
-                    } else if (comparator.compare(sortedAddends.get(cAddends), oldSortedObjective.get(cOldSorted)) <= 0) {
-                        newSortedObjective.add(sortedAddends.get(cAddends++));
-                    } else {
-                        final IIndividual individual = oldSortedObjective.get(cOldSorted);
-                        if (!removed.contains(individual)) {
-                            newSortedObjective.add(individual);
-                        }
-                        ++cOldSorted;
-                    }
-                }
-                newSortedObjectives.add(newSortedObjective);
-
-                cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
-                cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
-                for (int j = 1; j < newSortedObjective.size() - 1; j++) {
-                    double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
-                    distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
-                            newSortedObjective.get(j - 1).getObjectives()[obj])
-                            / (maxs.get(obj) - mins.get(obj));
-                    cdMap.put(newSortedObjective.get(j), distance);
-                }
-            }
-
-            final List<CDIndividual> rs = new ArrayList<>();
-            for (IIndividual member : modifiedLevel.getMembers()) {
-                rs.add(new CDIndividual(member, cdMap.get(member)));
-            }
-
-            modifiedLevel.cdMembers = rs;
-            modifiedLevel.sortedObjectives = newSortedObjectives;
+            mins.add(min);
+            maxs.add(max);
         }
+
+        final Set<IIndividual> removed = new HashSet<>(nextLevel);
+        final Map<IIndividual, Double> cdMap = new HashMap<>();
+        final List<List<IIndividual>> newSortedObjectives = new ArrayList<>();
+        for (int obj = 0; obj < objCount; ++obj) {
+            final List<IIndividual> sortedAddends = new ArrayList<>(addends);
+            final ObjectiveComparator comparator = new ObjectiveComparator(obj);
+            sortedAddends.sort(comparator);
+
+            final List<IIndividual> newSortedObjective = new ArrayList<>();
+            final List<IIndividual> oldSortedObjective = sortedObjectives.get(obj);
+            int cAddends = 0;
+            int cOldSorted = 0;
+            while (newSortedObjective.size() < currLevel.size()) {
+                if (cOldSorted >= oldSortedObjective.size()) {
+                    newSortedObjective.add(sortedAddends.get(cAddends++));
+                } else if (cAddends >= sortedAddends.size()) {
+                    final IIndividual individual = oldSortedObjective.get(cOldSorted);
+                    if (!removed.contains(individual)) {
+                        newSortedObjective.add(individual);
+                    }
+                    ++cOldSorted;
+                } else if (comparator.compare(sortedAddends.get(cAddends), oldSortedObjective.get(cOldSorted)) <= 0) {
+                    newSortedObjective.add(sortedAddends.get(cAddends++));
+                } else {
+                    final IIndividual individual = oldSortedObjective.get(cOldSorted);
+                    if (!removed.contains(individual)) {
+                        newSortedObjective.add(individual);
+                    }
+                    ++cOldSorted;
+                }
+            }
+            newSortedObjectives.add(newSortedObjective);
+
+            cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
+            cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
+            for (int j = 1; j < newSortedObjective.size() - 1; j++) {
+                double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
+                distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
+                        newSortedObjective.get(j - 1).getObjectives()[obj])
+                        / (maxs.get(obj) - mins.get(obj));
+                cdMap.put(newSortedObjective.get(j), distance);
+            }
+        }
+
+
+        final List<CDIndividual> rs = new ArrayList<>();
+        for (IIndividual member : currLevel) {
+            rs.add(new CDIndividual(member, cdMap.get(member)));
+        }
+
+        final JFBYNonDominationLevel modifiedLevel = new JFBYNonDominationLevel(sorter, currLevel, newSortedObjectives, rs);
 
         return new MemberAdditionResult(nextLevel, modifiedLevel);
     }

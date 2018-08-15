@@ -2,8 +2,8 @@ package ru.ifmo.nds.dcns.jfby;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
+import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.CDIndividualWithRank;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
@@ -30,20 +30,14 @@ public class TotalSyncJFBYPopulation extends JFBYPopulation {
 
     @Nonnull
     @Override
-    public synchronized List<INonDominationLevel> getLevels() {
-        return super.getLevels();
+    public synchronized PopulationSnapshot getSnapshot() {
+        return super.getSnapshot();
     }
 
     @Nullable
     @Override
     synchronized IIndividual intRemoveWorst() {
         return super.intRemoveWorst();
-    }
-
-    @Nonnull
-    @Override
-    public synchronized List<CDIndividualWithRank> getRandomSolutions(int count) {
-        return super.getRandomSolutions(count);
     }
 
     @Override

@@ -26,6 +26,7 @@ public class LeafNode extends AbstractNonDominationLevel implements INode {
                     @Nonnull Comparator<IIndividual> dominationComparator,
                     @Nonnull INdtSettings ndtSettings,
                     int dimension) {
+        super(content);
         this.content = content;
         this.dominationComparator = dominationComparator;
         this.ndtSettings = ndtSettings;
@@ -60,13 +61,13 @@ public class LeafNode extends AbstractNonDominationLevel implements INode {
             for (IIndividual individual : content) {
                 if (individual.getObjectives()[dimension] <= split) {
                     l.add(individual);
-                } else  {
+                } else {
                     r.add(individual);
                 }
             }
             if (addend.getObjectives()[dimension] <= split) {
                 l.add(addend);
-            } else  {
+            } else {
                 r.add(addend);
             }
             final int nextDimension = (dimension + 1) % ndtSettings.getDimensionsCount();
@@ -141,10 +142,8 @@ public class LeafNode extends AbstractNonDominationLevel implements INode {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("LeafNode{");
-        sb.append("content=").append(content);
-        sb.append(", dimension=").append(dimension);
-        sb.append('}');
-        return sb.toString();
+        return "LeafNode{" + "content=" + content +
+                ", dimension=" + dimension +
+                '}';
     }
 }
