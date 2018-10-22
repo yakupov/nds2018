@@ -83,7 +83,11 @@ public class LevelLockJFBYPopulation<T> implements IManagedPopulation<T> {
     @Nonnull
     public PopulationSnapshot<T> getSnapshot() {
         final ArrayList<INonDominationLevel<T>> rs = new ArrayList<>(nonDominationLevels);
-        return new PopulationSnapshot<>(rs, rs.stream().mapToInt(l -> l.getMembers().size()).sum());
+        int size = 0;
+        for (INonDominationLevel<T> level : rs) {
+            size += level.getMembers().size();
+        }
+        return new PopulationSnapshot<>(rs, size);
     }
 
     @Nonnull

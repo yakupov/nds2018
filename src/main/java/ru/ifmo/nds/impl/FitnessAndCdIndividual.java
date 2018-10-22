@@ -14,6 +14,8 @@ public class FitnessAndCdIndividual<T> implements IIndividual<T> {
 
     private final T payload;
 
+    private final int hashCode;
+
     public FitnessAndCdIndividual(double[] objectives, T payload) {
         this(objectives, 0, payload);
     }
@@ -22,6 +24,7 @@ public class FitnessAndCdIndividual<T> implements IIndividual<T> {
         this.objectives = objectives;
         this.crowdingDistance = crowdingDistance;
         this.payload = payload;
+        this.hashCode = Arrays.hashCode(objectives);
     }
 
     @Nonnull
@@ -50,7 +53,7 @@ public class FitnessAndCdIndividual<T> implements IIndividual<T> {
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(objectives);
+        return hashCode;
     }
 
     @Override

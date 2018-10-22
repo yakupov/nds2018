@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 public class Utils {
@@ -148,21 +147,55 @@ public class Utils {
 
         final int targetSize = sortedObjectives.get(0).size() - removed.size() + addends.size();
 
-        try {
-            assert targetSize == targetStateLexSortedNoCd.size();
-        } catch (Throwable t) {
-            System.err.println(objCount);
-            System.err.println(sortedObjectives);
-            System.err.println(addends);
-            System.err.println(removed);
-            System.err.println(targetStateLexSortedNoCd);
-            System.err.println(targetSize);
-            System.err.println(targetStateLexSortedNoCd.size());
-            throw t;
+//        try {
+//            assert targetSize == targetStateLexSortedNoCd.size();
+//        } catch (Throwable t) {
+//            System.err.println(objCount);
+//            System.err.println(sortedObjectives);
+//            System.err.println(addends);
+//            System.err.println(removed);
+//            System.err.println(targetStateLexSortedNoCd);
+//            System.err.println(targetSize);
+//            System.err.println(targetStateLexSortedNoCd.size());
+//            throw t;
+//        }
+
+        final List<Double> mins = new ArrayList<>(objCount);
+        final List<Double> maxs = new ArrayList<>(objCount);
+        calcMinMax(objCount, targetStateLexSortedNoCd, mins, maxs);
+
+        final HashMap<IIndividual<T>, Double> cdMap = new HashMap<>();
+        final List<List<IIndividual<T>>> newSortedObjectives = new ArrayList<>(sortedObjectives.size());
+        final List<IIndividual<T>> sortedAddends = new ArrayList<>(addends);
+        for (int obj = 0; obj < objCount; ++obj) {
+
+
+            final ArrayList<IIndividual<T>> newSortedObjective = mergeSortedObjectiveWithAddendsAndRemovals(sortedObjectives, removed, targetSize, sortedAddends, obj);
+            newSortedObjectives.add(newSortedObjective);
+
+            updateCdMap(mins, maxs, cdMap, obj, newSortedObjective);
+
+            //Objects.requireNonNull(newSortedObjective);
         }
 
-        final List<Double> mins = new ArrayList<>();
-        final List<Double> maxs = new ArrayList<>();
+        final List<IIndividual<T>> rs = generateResponse(targetStateLexSortedNoCd, targetSize, cdMap);
+
+        //Objects.requireNonNull(rs);
+
+//        for (List<IIndividual<T>> l : newSortedObjectives) {
+//            Objects.requireNonNull(l);
+//            if (l.size() != rs.size()) {
+//                System.err.println(l);
+//                System.err.println(rs);
+//                throw new RuntimeException("ass failed");
+//            }
+//
+//        }
+
+        return new CrowdingDistanceData<>(rs, newSortedObjectives);
+    }
+
+    private static <T> void calcMinMax(int objCount, @Nonnull List<IIndividual<T>> targetStateLexSortedNoCd, List<Double> mins, List<Double> maxs) {
         for (int obj = 0; obj < objCount; ++obj) {
             double min = Double.POSITIVE_INFINITY;
             double max = Double.NEGATIVE_INFINITY;
@@ -173,69 +206,63 @@ public class Utils {
             mins.add(min);
             maxs.add(max);
         }
+    }
 
-        final Map<IIndividual<T>, Double> cdMap = new HashMap<>();
-        final List<List<IIndividual<T>>> newSortedObjectives = new ArrayList<>();
-        final List<IIndividual<T>> sortedAddends = new ArrayList<>(addends);
-        for (int obj = 0; obj < objCount; ++obj) {
-            final ObjectiveComparator comparator = new ObjectiveComparator(obj);
-            sortedAddends.sort(comparator);
-
-            final List<IIndividual<T>> newSortedObjective = new ArrayList<>();
-            final List<IIndividual<T>> oldSortedObjective = sortedObjectives.get(obj);
-            int cAddends = 0;
-            int cOldSorted = 0;
-            while (newSortedObjective.size() < targetSize) {
-                if (cOldSorted >= oldSortedObjective.size()) {
-                    newSortedObjective.add(sortedAddends.get(cAddends++));
-                } else if (cAddends >= sortedAddends.size()) {
-                    final IIndividual<T> individual = oldSortedObjective.get(cOldSorted);
-                    if (!removed.contains(individual)) {
-                        newSortedObjective.add(individual);
-                    }
-                    ++cOldSorted;
-                } else if (comparator.compare(sortedAddends.get(cAddends), oldSortedObjective.get(cOldSorted)) <= 0) {
-                    newSortedObjective.add(sortedAddends.get(cAddends++));
-                } else {
-                    final IIndividual<T> individual = oldSortedObjective.get(cOldSorted);
-                    if (!removed.contains(individual)) {
-                        newSortedObjective.add(individual);
-                    }
-                    ++cOldSorted;
-                }
-            }
-            newSortedObjectives.add(newSortedObjective);
-
-            cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
-            cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
-            for (int j = 1; j < newSortedObjective.size() - 1; j++) {
-                double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
-                distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
-                        newSortedObjective.get(j - 1).getObjectives()[obj])
-                        / (maxs.get(obj) - mins.get(obj));
-                cdMap.put(newSortedObjective.get(j), distance);
-            }
-
-            Objects.requireNonNull(newSortedObjective);
-        }
-
-        final List<IIndividual<T>> rs = new ArrayList<>();
+    private static <T> List<IIndividual<T>> generateResponse(@Nonnull List<IIndividual<T>> targetStateLexSortedNoCd, int targetSize, Map<IIndividual<T>, Double> cdMap) {
+        final List<IIndividual<T>> rs = new ArrayList<>(targetSize);
         for (IIndividual<T> i : targetStateLexSortedNoCd) {
             rs.add(new FitnessAndCdIndividual<>(i.getObjectives(), cdMap.get(i), i.getPayload()));
         }
+        return rs;
+    }
 
-        Objects.requireNonNull(rs);
-
-        for (List<IIndividual<T>> l : newSortedObjectives) {
-            Objects.requireNonNull(l);
-            if (l.size() != rs.size()) {
-                System.err.println(l);
-                System.err.println(rs);
-                throw new RuntimeException("ass failed");
+    private static <T> ArrayList<IIndividual<T>> mergeSortedObjectiveWithAddendsAndRemovals(
+            @Nonnull List<List<IIndividual<T>>> sortedObjectives,
+            @Nonnull Set<IIndividual<T>> removed,
+            int targetSize,
+            @Nonnull List<IIndividual<T>> addends,
+            int objNumber) {
+        final ArrayList<IIndividual<T>> newSortedObjective = new ArrayList<>(targetSize);
+        final List<IIndividual<T>> oldSortedObjective = sortedObjectives.get(objNumber);
+        int cAddends = 0;
+        int cOldSorted = 0;
+        final ObjectiveComparator comparator = new ObjectiveComparator(objNumber);
+        addends.sort(comparator);
+        while (newSortedObjective.size() < targetSize) {
+            if (cOldSorted >= oldSortedObjective.size()) {
+                newSortedObjective.add(addends.get(cAddends++));
+            } else if (cAddends >= addends.size()) {
+                final IIndividual<T> individual = oldSortedObjective.get(cOldSorted);
+                if (!removed.contains(individual)) {
+                    newSortedObjective.add(individual);
+                }
+                ++cOldSorted;
+            } else if (comparator.compare(addends.get(cAddends), oldSortedObjective.get(cOldSorted)) <= 0) {
+                newSortedObjective.add(addends.get(cAddends++));
+            } else {
+                final IIndividual<T> individual = oldSortedObjective.get(cOldSorted);
+                if (!removed.contains(individual)) {
+                    newSortedObjective.add(individual);
+                }
+                ++cOldSorted;
             }
-
         }
+        return newSortedObjective;
+    }
 
-        return new CrowdingDistanceData<>(rs, newSortedObjectives);
+    private static <T> void updateCdMap(List<Double> mins,
+                                        List<Double> maxs,
+                                        HashMap<IIndividual<T>, Double> cdMap,
+                                        int obj,
+                                        ArrayList<IIndividual<T>> newSortedObjective) {
+        cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
+        cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
+        for (int j = 1; j < newSortedObjective.size() - 1; j++) {
+            double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
+            distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
+                    newSortedObjective.get(j - 1).getObjectives()[obj])
+                    / (maxs.get(obj) - mins.get(obj));
+            cdMap.put(newSortedObjective.get(j), distance);
+        }
     }
 }
