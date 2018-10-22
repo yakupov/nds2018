@@ -83,30 +83,14 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
         final RankedPopulation<IIndividual<T>> rp = sorter.addRankedMembers(members, ranks, addends, 0);
         final ArrayList<IIndividual<T>> currLevel = new ArrayList<>(ranks.length + addends.size());
         final ArrayList<IIndividual<T>> nextLevel = new ArrayList<>(ranks.length);
+        final Set<IIndividual<T>> nextLevelSet = new HashSet<>(ranks.length);
 
-        final Set<IIndividual> currLevelSet = new HashSet<>();
         for (int i = 0; i < rp.getPop().length; ++i) {
             if (rp.getRanks()[i] == 0) {
                 currLevel.add(rp.getPop()[i]);
-                currLevelSet.add(rp.getPop()[i]);
             } else {
                 nextLevel.add(rp.getPop()[i]);
-            }
-        }
-
-        final List<IIndividual<T>> currAddends = new ArrayList<>();
-        final Set<IIndividual<T>> nextLevelAddends = new HashSet<>();
-        for (IIndividual<T> addend : addends) {
-            if (currLevelSet.contains(addend))
-                currAddends.add(addend);
-            else
-                nextLevelAddends.add(addend);
-        }
-
-        final Set<IIndividual<T>> removed = new HashSet<>();
-        for (IIndividual<T> i : nextLevel) {
-            if (!nextLevelAddends.contains(i)) {
-                removed.add(i);
+                nextLevelSet.add(rp.getPop()[i]);
             }
         }
 
@@ -116,8 +100,8 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
         final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
                 addends.get(0).getObjectives().length,
                 sortedObjectives,
-                currAddends,
-                removed,
+                addends,
+                nextLevelSet,
                 currLevel
         );
 
