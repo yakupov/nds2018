@@ -7,16 +7,20 @@ import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.CDIndividual;
+import ru.ifmo.nds.impl.FitnessAndCdIndividual;
+import ru.ifmo.nds.util.CrowdingDistanceData;
 import ru.ifmo.nds.util.QuickSelect;
+import ru.ifmo.nds.util.Utils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,7 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 @ThreadSafe
-public class LevelLockJFBYPopulation implements IManagedPopulation {
+public class LevelLockJFBYPopulation<T> implements IManagedPopulation<T> {
     private static final double DEFAULT_DELETION_THRESHOLD = 1.2;
 
     private final List<Lock> levelLocks = new CopyOnWriteArrayList<>();
@@ -34,8 +38,8 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
     private final JFB2014 sorter;
 
     private final AtomicInteger size = new AtomicInteger(0);
-    private final CopyOnWriteArrayList<INonDominationLevel> nonDominationLevels;
-    private final Map<IIndividual, Boolean> presentIndividuals = new ConcurrentHashMap<>();
+    private final CopyOnWriteArrayList<JFBYNonDominationLevel<T>> nonDominationLevels;
+    private final Map<IIndividual<T>, Boolean> presentIndividuals = new ConcurrentHashMap<>();
 
     private final long expectedPopSize;
     private final double deletionThreshold;
@@ -58,7 +62,7 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
 
     @SuppressWarnings("WeakerAccess")
     public LevelLockJFBYPopulation(@Nonnull final JFB2014 sorter,
-                                   @Nonnull final CopyOnWriteArrayList<INonDominationLevel> nonDominationLevels,
+                                   @Nonnull final CopyOnWriteArrayList<JFBYNonDominationLevel<T>> nonDominationLevels,
                                    final long expectedPopSize,
                                    final double deletionThreshold) {
         this.sorter = sorter;
@@ -66,10 +70,10 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
         this.expectedPopSize = expectedPopSize;
         this.deletionThreshold = deletionThreshold;
 
-        for (INonDominationLevel level : nonDominationLevels) {
+        for (INonDominationLevel<T> level : nonDominationLevels) {
             levelLocks.add(new ReentrantLock());
             size.addAndGet(level.getMembers().size());
-            for (IIndividual individual : level.getMembers()) {
+            for (IIndividual<T> individual : level.getMembers()) {
                 presentIndividuals.put(individual, true);
             }
         }
@@ -77,14 +81,14 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
 
     @Override
     @Nonnull
-    public PopulationSnapshot getSnapshot() {
-        final ArrayList<INonDominationLevel> rs = new ArrayList<>(nonDominationLevels);
-        return new PopulationSnapshot(rs, rs.stream().mapToInt(l -> l.getMembers().size()).sum());
+    public PopulationSnapshot<T> getSnapshot() {
+        final ArrayList<INonDominationLevel<T>> rs = new ArrayList<>(nonDominationLevels);
+        return new PopulationSnapshot<>(rs, rs.stream().mapToInt(l -> l.getMembers().size()).sum());
     }
 
     @Nonnull
     @Override
-    public List<? extends INonDominationLevel> getLevelsUnsafe() {
+    public List<? extends INonDominationLevel<T>> getLevelsUnsafe() {
         return Collections.unmodifiableList(nonDominationLevels);
     }
 
@@ -108,7 +112,7 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
                     }
 
                     try {
-                        final INonDominationLevel lastLevel = nonDominationLevels.get(lastLevelIndex);
+                        final JFBYNonDominationLevel<T> lastLevel = nonDominationLevels.get(lastLevelIndex);
                         if (lastLevel.getMembers().size() <= remaining) {
                             levelLocks.remove(lastLevelIndex);
                             nonDominationLevels.remove(lastLevelIndex);
@@ -123,17 +127,19 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
                         } else {
                             final double[] cd = new double[lastLevel.getMembers().size()];
                             int i = 0;
-                            for (CDIndividual cdIndividual : lastLevel.getMembersWithCD()) {
+                            for (IIndividual cdIndividual : lastLevel.getMembers()) {
                                 cd[i++] = cdIndividual.getCrowdingDistance();
                             }
                             final double cdThreshold = new QuickSelect().getKthElement(cd, remaining);
-                            final List<IIndividual> newMembers = new ArrayList<>();
-                            for (CDIndividual cdIndividual : lastLevel.getMembersWithCD()) {
-                                if (remaining > 0 && cdIndividual.getCrowdingDistance() <= cdThreshold) {
-                                    presentIndividuals.remove(cdIndividual.getIndividual());
+                            final List<IIndividual<T>> newMembers = new ArrayList<>();
+                            final Set<IIndividual<T>> removals = new HashSet<>();
+                            for (IIndividual<T> individual : lastLevel.getMembers()) {
+                                if (remaining > 0 && individual.getCrowdingDistance() <= cdThreshold) {
+                                    presentIndividuals.remove(individual);
+                                    removals.add(individual);
                                     --remaining;
                                 } else {
-                                    newMembers.add(cdIndividual.getIndividual());
+                                    newMembers.add(individual);
                                 }
                             }
                             if (newMembers.isEmpty()) {
@@ -142,7 +148,13 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
                                 System.out.println(Arrays.toString(cd));
                                 throw new RuntimeException(remaining + "<" + lastLevel.getMembers().size());
                             }
-                            final JFBYNonDominationLevel newLevel = new JFBYNonDominationLevel(sorter, newMembers); //FIXME: partial recalc CD
+                            final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
+                                    presentIndividuals.keySet().iterator().next().getObjectives().length,
+                                    lastLevel.getSortedObjectives(),
+                                    Collections.emptyList(),
+                                    removals,
+                                    newMembers);
+                            final JFBYNonDominationLevel<T> newLevel = new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives());
                             nonDominationLevels.set(lastLevelIndex, newLevel);
                         }
 
@@ -171,7 +183,7 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
     }
 
     @Override
-    public int addIndividual(@Nonnull IIndividual addend) {
+    public int addIndividual(@Nonnull IIndividual<T> addend) {
         if (presentIndividuals.putIfAbsent(addend, true) != null) {
             return determineRank(addend);
         }
@@ -196,20 +208,29 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
         //Locked current level or all level addition
 
         if (rank >= nonDominationLevels.size()) {
-            final List<IIndividual> individuals = new ArrayList<>();
-            individuals.add(addend);
-            final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, individuals); //New level - full CD calc
+            final List<IIndividual<T>> individuals = Collections.singletonList(new FitnessAndCdIndividual<>(
+                    addend.getObjectives(), Double.POSITIVE_INFINITY,
+                    addend.getPayload()));
+            final List<List<IIndividual<T>>> sortedObjectives = new ArrayList<>();
+            for (int i = 0; i < addend.getObjectives().length; ++i) {
+                sortedObjectives.add(individuals);
+            }
+            final JFBYNonDominationLevel<T> level = new JFBYNonDominationLevel<>(
+                    sorter,
+                    individuals,
+                    sortedObjectives
+            );
             levelLocks.add(new ReentrantLock());
             nonDominationLevels.add(level);
             addLevelLock.unlock();
         } else {
-            List<IIndividual> addends = Collections.singletonList(addend);
+            List<IIndividual<T>> addends = Collections.singletonList(addend);
             int i = rank;
             while (!addends.isEmpty() && i < nonDominationLevels.size()) {
                 //assertion: we have locked levelLocks.get(i)
                 try {
-                    final INonDominationLevel level = nonDominationLevels.get(i);
-                    final INonDominationLevel.MemberAdditionResult memberAdditionResult = level.addMembers(addends);
+                    final JFBYNonDominationLevel<T> level = nonDominationLevels.get(i);
+                    final INonDominationLevel.MemberAdditionResult<T, JFBYNonDominationLevel<T>> memberAdditionResult = level.addMembers(addends);
                     nonDominationLevels.set(i, memberAdditionResult.getModifiedLevel());
 
                     if (!memberAdditionResult.getEvictedMembers().isEmpty()) {
@@ -223,8 +244,8 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
                 i++;
             }
             if (!addends.isEmpty()) {
-                final JFBYNonDominationLevel level = new JFBYNonDominationLevel(sorter, addends); //New level - full CD calc
                 levelLocks.add(new ReentrantLock());
+                final JFBYNonDominationLevel<T> level = new JFBYNonDominationLevel<>(sorter, addends); //New level - full CD calc
                 nonDominationLevels.add(level);
                 addLevelLock.unlock();
             }
@@ -269,9 +290,9 @@ public class LevelLockJFBYPopulation implements IManagedPopulation {
      */
     @SuppressWarnings("MethodDoesntCallSuperMethod")
     @Override
-    public LevelLockJFBYPopulation clone() {
-        final LevelLockJFBYPopulation copy = new LevelLockJFBYPopulation(sorter, nonDominationLevels, expectedPopSize, deletionThreshold);
-        for (INonDominationLevel level : nonDominationLevels) {
+    public LevelLockJFBYPopulation<T> clone() {
+        final LevelLockJFBYPopulation<T> copy = new LevelLockJFBYPopulation<>(sorter, nonDominationLevels, expectedPopSize, deletionThreshold);
+        for (INonDominationLevel<T> level : nonDominationLevels) {
             copy.getSnapshot().getLevels().add(level.copy());
         }
         return copy;

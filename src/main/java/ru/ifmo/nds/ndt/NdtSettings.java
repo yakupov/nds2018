@@ -37,10 +37,8 @@ public class NdtSettings implements INdtSettings {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("NdtSettings{");
-        sb.append("bucketCapacity=").append(bucketCapacity);
-        sb.append(", dimensionsCount=").append(dimensionsCount);
-        sb.append('}');
-        return sb.toString();
+        return "NdtSettings{" + "bucketCapacity=" + bucketCapacity +
+                ", dimensionsCount=" + dimensionsCount +
+                '}';
     }
 }

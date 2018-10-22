@@ -1,21 +1,20 @@
 package ru.ifmo.nds;
 
 import javax.annotation.concurrent.Immutable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 @Immutable
-public class PopulationSnapshot {
-    private final List<INonDominationLevel> levels;
+public class PopulationSnapshot<T> {
+    private final List<INonDominationLevel<T>> levels;
     private final int size;
 
-    public PopulationSnapshot(List<INonDominationLevel> levels, int size) {
+    public PopulationSnapshot(List<INonDominationLevel<T>> levels, int size) {
         this.levels = levels;
         this.size = size;
     }
 
-    public List<INonDominationLevel> getLevels() {
+    public List<INonDominationLevel<T>> getLevels() {
         return levels;
     }
 

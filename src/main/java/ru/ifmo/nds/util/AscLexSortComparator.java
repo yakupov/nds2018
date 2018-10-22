@@ -7,7 +7,7 @@ import java.util.Comparator;
 
 @ThreadSafe
 public class AscLexSortComparator implements Comparator<IIndividual> {
-    private static AscLexSortComparator instance = new AscLexSortComparator();
+    private final static AscLexSortComparator instance = new AscLexSortComparator();
 
     private AscLexSortComparator() {
     }

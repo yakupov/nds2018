@@ -1,6 +1,5 @@
 package ru.ifmo.nds.ndt;
 
-import ru.ifmo.nds.AbstractNonDominationLevel;
 import ru.ifmo.nds.IIndividual;
 
 import javax.annotation.Nonnull;
@@ -9,7 +8,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-public class TreeNode extends AbstractNonDominationLevel implements INode {
+public class TreeNode implements INode {
     @Nonnull
     private INode left;
 
@@ -26,7 +25,7 @@ public class TreeNode extends AbstractNonDominationLevel implements INode {
                     @Nonnull INode right,
                     int dimension,
                     double split) {
-        super(TreeNode.concat(ArrayList::new, left.getMembers(), right.getMembers())); //FIXME!!!!!
+        //super(TreeNode.concat(ArrayList::new, left.getMembers(), right.getMembers())); //FIXME: no CD in NDT
         this.left = left;
         this.right = right;
         this.dimension = dimension;
@@ -86,7 +85,7 @@ public class TreeNode extends AbstractNonDominationLevel implements INode {
         return size;
     }
 
-    @Override
+    @Override //TODO: calc CD
     public List<IIndividual> getMembers() {
         final List<IIndividual> lMembers = left.getMembers();
         final List<IIndividual> rMembers = right.getMembers();

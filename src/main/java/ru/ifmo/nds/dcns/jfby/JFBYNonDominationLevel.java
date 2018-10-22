@@ -1,139 +1,152 @@
 package ru.ifmo.nds.dcns.jfby;
 
-import ru.ifmo.nds.AbstractNonDominationLevel;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.CDIndividual;
-import ru.ifmo.nds.util.ObjectiveComparator;
+import ru.ifmo.nds.util.CrowdingDistanceData;
+import ru.ifmo.nds.util.Utils;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
+import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
 
 @ThreadSafe
-public class JFBYNonDominationLevel extends AbstractNonDominationLevel implements INonDominationLevel {
+@Immutable
+public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
     @Nonnull
     private final JFB2014 sorter;
 
     @Nonnull
-    private final List<IIndividual> members;
+    private final List<IIndividual<T>> members;
 
-    @Deprecated
+    @Nonnull
+    private final List<List<IIndividual<T>>> sortedObjectives;
+
+    /**
+     * Inefficient (O(NlogN) CD recalc) new level construction
+     * @param sorter Sorter impl
+     * @param members Level members
+     */
     public JFBYNonDominationLevel(@Nonnull JFB2014 sorter,
-                                  @Nonnull List<IIndividual> members) {
-        super(members);
+                                  @Nonnull List<IIndividual<T>> members) {
         this.sorter = sorter;
-        this.members = Collections.unmodifiableList(members);
+        if (!members.isEmpty()) {
+            final CrowdingDistanceData<T> cdd = Utils.calculateCrowdingDistances(members.get(0).getObjectives().length, members);
+            this.members = cdd.getIndividuals();
+            this.sortedObjectives = cdd.getSortedObjectives();
+        } else {
+            this.members = Collections.emptyList();
+            this.sortedObjectives = Collections.emptyList();
+        }
     }
 
     public JFBYNonDominationLevel(@Nonnull JFB2014 sorter,
-                                  @Nonnull List<IIndividual> members,
-                                  List<List<IIndividual>> sortedObjectives,
-                                  List<CDIndividual> cdMembers) {
-        super(cdMembers, sortedObjectives);
+                                  @Nonnull List<IIndividual<T>> members,
+                                  @Nonnull List<List<IIndividual<T>>> sortedObjectives) {
+        for (List<IIndividual<T>> so : sortedObjectives) {
+            assert so != null;
+            assert so.size() == members.size();
+        }
         this.sorter = sorter;
         this.members = Collections.unmodifiableList(members);
+        this.sortedObjectives = Collections.unmodifiableList(sortedObjectives);
     }
 
     @Override
     @Nonnull
-    public List<IIndividual> getMembers() {
+    public List<IIndividual<T>> getMembers() {
         return members;
     }
 
+    @Nonnull
+    public List<List<IIndividual<T>>> getSortedObjectives() {
+        return sortedObjectives;
+    }
+
     @Override
-    public MemberAdditionResult addMembers(@Nonnull List<IIndividual> addends) {
+    public MemberAdditionResult<T, JFBYNonDominationLevel<T>> addMembers(@Nonnull List<IIndividual<T>> addends) {
+        for (List<IIndividual<T>> ls : sortedObjectives) {
+            assert ls.size() == members.size();
+        }
+
         final int[] ranks = new int[members.size()];
-        final RankedPopulation<IIndividual> rp = sorter.addRankedMembers(members, ranks, addends, 0);
-        final ArrayList<IIndividual> currLevel = new ArrayList<>(ranks.length + addends.size());
-        final ArrayList<IIndividual> nextLevel = new ArrayList<>(ranks.length);
+        final RankedPopulation<IIndividual<T>> rp = sorter.addRankedMembers(members, ranks, addends, 0);
+        final ArrayList<IIndividual<T>> currLevel = new ArrayList<>(ranks.length + addends.size());
+        final ArrayList<IIndividual<T>> nextLevel = new ArrayList<>(ranks.length);
+
+        final Set<IIndividual> currLevelSet = new HashSet<>();
         for (int i = 0; i < rp.getPop().length; ++i) {
-            if (rp.getRanks()[i] == 0)
+            if (rp.getRanks()[i] == 0) {
                 currLevel.add(rp.getPop()[i]);
-            else
+                currLevelSet.add(rp.getPop()[i]);
+            } else {
                 nextLevel.add(rp.getPop()[i]);
-        }
-
-        //TODO: maybe add some laziness, passing the following data to the constructor
-//        modifiedLevel.prevSortedObjectives = this.sortedObjectives;
-//        modifiedLevel.addends = addends;
-//        modifiedLevel.removed = nextLevel;
-        // And processing it in getMembersWithCD().
-        // Downside: if the next level will be modified before calling getMembersWichCD for it, this data will be lost,  and full calc will be needed
-
-        final int objCount = addends.get(0).getObjectives().length;
-
-        final List<Double> mins = new ArrayList<>();
-        final List<Double> maxs = new ArrayList<>();
-        for (int obj = 0; obj < objCount; ++obj) {
-            double min = Double.POSITIVE_INFINITY;
-            double max = Double.NEGATIVE_INFINITY;
-            for (IIndividual member : currLevel) {
-                min = Math.min(min, member.getObjectives()[obj]);
-                max = Math.max(max, member.getObjectives()[obj]);
             }
-            mins.add(min);
-            maxs.add(max);
         }
 
-        final Set<IIndividual> removed = new HashSet<>(nextLevel);
-        final Map<IIndividual, Double> cdMap = new HashMap<>();
-        final List<List<IIndividual>> newSortedObjectives = new ArrayList<>();
-        for (int obj = 0; obj < objCount; ++obj) {
-            final List<IIndividual> sortedAddends = new ArrayList<>(addends);
-            final ObjectiveComparator comparator = new ObjectiveComparator(obj);
-            sortedAddends.sort(comparator);
+        final List<IIndividual<T>> currAddends = new ArrayList<>();
+        final Set<IIndividual<T>> nextLevelAddends = new HashSet<>();
+        for (IIndividual<T> addend : addends) {
+            if (currLevelSet.contains(addend))
+                currAddends.add(addend);
+            else
+                nextLevelAddends.add(addend);
+        }
 
-            final List<IIndividual> newSortedObjective = new ArrayList<>();
-            final List<IIndividual> oldSortedObjective = sortedObjectives.get(obj);
-            int cAddends = 0;
-            int cOldSorted = 0;
-            while (newSortedObjective.size() < currLevel.size()) {
-                if (cOldSorted >= oldSortedObjective.size()) {
-                    newSortedObjective.add(sortedAddends.get(cAddends++));
-                } else if (cAddends >= sortedAddends.size()) {
-                    final IIndividual individual = oldSortedObjective.get(cOldSorted);
-                    if (!removed.contains(individual)) {
-                        newSortedObjective.add(individual);
-                    }
-                    ++cOldSorted;
-                } else if (comparator.compare(sortedAddends.get(cAddends), oldSortedObjective.get(cOldSorted)) <= 0) {
-                    newSortedObjective.add(sortedAddends.get(cAddends++));
-                } else {
-                    final IIndividual individual = oldSortedObjective.get(cOldSorted);
-                    if (!removed.contains(individual)) {
-                        newSortedObjective.add(individual);
-                    }
-                    ++cOldSorted;
+        final Set<IIndividual<T>> removed = new HashSet<>();
+        for (IIndividual<T> i : nextLevel) {
+            if (!nextLevelAddends.contains(i)) {
+                removed.add(i);
+            }
+        }
+
+        //assert nextLevel.size() == new HashSet<>(nextLevel).size();
+        //assert currLevel.size() == new HashSet<>(currLevel).size();
+
+        final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
+                addends.get(0).getObjectives().length,
+                sortedObjectives,
+                currAddends,
+                removed,
+                currLevel
+        );
+
+        try {
+            assert cdd.getIndividuals().size() == currLevel.size();
+
+            for (List<IIndividual<T>> iIndividuals : cdd.getSortedObjectives()) {
+                assert iIndividuals.size() == cdd.getIndividuals().size();
+
+                if (iIndividuals.size() != currLevel.size()) {
+                    System.err.println(iIndividuals);
+                    System.err.println(currLevel);
+                    throw new AssertionError("Ass failed");
                 }
             }
-            newSortedObjectives.add(newSortedObjective);
-
-            cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
-            cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
-            for (int j = 1; j < newSortedObjective.size() - 1; j++) {
-                double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
-                distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
-                        newSortedObjective.get(j - 1).getObjectives()[obj])
-                        / (maxs.get(obj) - mins.get(obj));
-                cdMap.put(newSortedObjective.get(j), distance);
-            }
+        } catch (Throwable t) {
+            System.err.println(cdd.getIndividuals());
+            System.err.println(cdd.getSortedObjectives());
+            System.err.println(addends);
+            System.err.println(members);
+            System.err.println(sortedObjectives);
+            System.err.println(currLevel);
+            throw t;
         }
 
-
-        final List<CDIndividual> rs = new ArrayList<>();
-        for (IIndividual member : currLevel) {
-            rs.add(new CDIndividual(member, cdMap.get(member)));
-        }
-
-        final JFBYNonDominationLevel modifiedLevel = new JFBYNonDominationLevel(sorter, currLevel, newSortedObjectives, rs);
-
-        return new MemberAdditionResult(nextLevel, modifiedLevel);
+        return new MemberAdditionResult<>(
+                nextLevel,
+                new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives())
+        );
     }
 
     @Override
@@ -150,10 +163,10 @@ public class JFBYNonDominationLevel extends AbstractNonDominationLevel implement
     }
 
     @Override
-    public JFBYNonDominationLevel copy() {
-        final List<IIndividual> newMembers = new ArrayList<>(members.size());
+    public JFBYNonDominationLevel<T> copy() {
+        final List<IIndividual<T>> newMembers = new ArrayList<>(members.size());
         newMembers.addAll(members);
-        return new JFBYNonDominationLevel(sorter, newMembers);
+        return new JFBYNonDominationLevel<>(sorter, newMembers, sortedObjectives);
     }
 
     @Override

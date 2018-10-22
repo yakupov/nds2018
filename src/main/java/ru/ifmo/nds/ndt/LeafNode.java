@@ -1,13 +1,12 @@
 package ru.ifmo.nds.ndt;
 
-import ru.ifmo.nds.AbstractNonDominationLevel;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.util.QuickSelect;
 
 import javax.annotation.Nonnull;
 import java.util.*;
 
-public class LeafNode extends AbstractNonDominationLevel implements INode {
+public class LeafNode implements INode {
     @Nonnull
     private List<IIndividual> content; //TODO: treeset or sorted array for faster addition and search
 
@@ -26,7 +25,6 @@ public class LeafNode extends AbstractNonDominationLevel implements INode {
                     @Nonnull Comparator<IIndividual> dominationComparator,
                     @Nonnull INdtSettings ndtSettings,
                     int dimension) {
-        super(content);
         this.content = content;
         this.dominationComparator = dominationComparator;
         this.ndtSettings = ndtSettings;
@@ -99,11 +97,10 @@ public class LeafNode extends AbstractNonDominationLevel implements INode {
         return content.size();
     }
 
-    @Override
+    @Override //TODO: calc CD
     public List<IIndividual> getMembers() {
         return Collections.unmodifiableList(content);
     }
-
 
     @Override
     public boolean dominatedByAnyPointOfThisLayer(@Nonnull IIndividual point) {

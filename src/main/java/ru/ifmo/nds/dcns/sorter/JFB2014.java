@@ -28,7 +28,7 @@ import static ru.itmo.nds.util.ComparisonUtils.dominates;
  */
 @SuppressWarnings({"UnnecessaryReturnStatement", "Convert2streamapi"})
 @ThreadSafe
-public class JFB2014 { //TODO: extract interface
+public class JFB2014 { //todo: extract interface
     @SuppressWarnings("WeakerAccess")
     public static final String JFB_ENABLE_TRACE_PROPERTY = "ru.itmo.jfb.trace_to_stdout";
 
@@ -158,10 +158,10 @@ public class JFB2014 { //TODO: extract interface
      *                 relationships with the members of {@code pop}
      * @return Updated population
      */
-    public RankedPopulation<IIndividual> addRankedMembers(List<IIndividual> pop,
+    public <T> RankedPopulation<IIndividual<T>> addRankedMembers(List<IIndividual<T>> pop,
                                                           int[] ranks,
-                                                          List<IIndividual> addends,
-                                                          @SuppressWarnings("SameParameterValue") int rankHint) { //TODO: UT
+                                                          List<IIndividual<T>> addends,
+                                                          @SuppressWarnings("SameParameterValue") int rankHint) { //todo: UT
         final double[] ultimateAddend = new double[addends.get(0).getObjectives().length];
         for (int i = 0; i < ultimateAddend.length; ++i) {
             ultimateAddend[i] = Double.POSITIVE_INFINITY;
@@ -173,7 +173,7 @@ public class JFB2014 { //TODO: extract interface
             }
         }
 
-        final IIndividual[] newPop = new IIndividual[pop.size() + addends.size()];
+        @SuppressWarnings("unchecked") final IIndividual<T>[] newPop = new IIndividual[pop.size() + addends.size()];
         final int[] newRanks = new int[newPop.length];
         final int dim = addends.get(0).getObjectives().length;
 
