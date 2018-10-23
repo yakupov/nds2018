@@ -1,5 +1,7 @@
 package ru.ifmo.nds.util;
 
+import org.eclipse.collections.api.map.primitive.MutableObjectDoubleMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectDoubleHashMap;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
@@ -9,7 +11,6 @@ import ru.ifmo.nds.impl.FitnessAndCdIndividual;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,11 +161,11 @@ public class Utils {
 //            throw t;
 //        }
 
-        final List<Double> mins = new ArrayList<>(objCount);
-        final List<Double> maxs = new ArrayList<>(objCount);
+        final double[] mins = new double[objCount];
+        final double[] maxs = new double[objCount];
         calcMinMax(objCount, targetStateLexSortedNoCd, mins, maxs);
 
-        final HashMap<IIndividual<T>, Double> cdMap = new HashMap<>();
+        final MutableObjectDoubleMap<IIndividual<T>> cdMap = new ObjectDoubleHashMap<>(targetSize);
         final List<List<IIndividual<T>>> newSortedObjectives = new ArrayList<>(sortedObjectives.size());
         final List<IIndividual<T>> sortedAddends = new ArrayList<>(addends);
         for (int obj = 0; obj < objCount; ++obj) {
@@ -195,7 +196,10 @@ public class Utils {
         return new CrowdingDistanceData<>(rs, newSortedObjectives);
     }
 
-    private static <T> void calcMinMax(int objCount, @Nonnull List<IIndividual<T>> targetStateLexSortedNoCd, List<Double> mins, List<Double> maxs) {
+    private static <T> void calcMinMax(int objCount,
+                                       @Nonnull List<IIndividual<T>> targetStateLexSortedNoCd,
+                                       final double[] mins,
+                                       final double[] maxs) {
         for (int obj = 0; obj < objCount; ++obj) {
             double min = Double.POSITIVE_INFINITY;
             double max = Double.NEGATIVE_INFINITY;
@@ -203,12 +207,14 @@ public class Utils {
                 min = Math.min(min, member.getObjectives()[obj]);
                 max = Math.max(max, member.getObjectives()[obj]);
             }
-            mins.add(min);
-            maxs.add(max);
+            mins[obj] = min;
+            maxs[obj] = max;
         }
     }
 
-    private static <T> List<IIndividual<T>> generateResponse(@Nonnull List<IIndividual<T>> targetStateLexSortedNoCd, int targetSize, Map<IIndividual<T>, Double> cdMap) {
+    private static <T> List<IIndividual<T>> generateResponse(@Nonnull List<IIndividual<T>> targetStateLexSortedNoCd,
+                                                             int targetSize,
+                                                             MutableObjectDoubleMap<IIndividual<T>> cdMap) {
         final List<IIndividual<T>> rs = new ArrayList<>(targetSize);
         for (IIndividual<T> i : targetStateLexSortedNoCd) {
             rs.add(new FitnessAndCdIndividual<>(i.getObjectives(), cdMap.get(i), i.getPayload()));
@@ -250,16 +256,16 @@ public class Utils {
         return newSortedObjective;
     }
 
-    private static <T> void updateCdMap(List<Double> mins,
-                                        List<Double> maxs,
-                                        HashMap<IIndividual<T>, Double> cdMap,
+    private static <T> void updateCdMap(double[] mins,
+                                        double[] maxs,
+                                        MutableObjectDoubleMap<IIndividual<T>> cdMap,
                                         int obj,
                                         ArrayList<IIndividual<T>> newSortedObjective) {
         cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
         cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
-        final double inverseDelta = 1 / (maxs.get(obj) - mins.get(obj));
+        final double inverseDelta = 1 / (maxs[obj] - mins[obj]);
         for (int j = 1; j < newSortedObjective.size() - 1; j++) {
-            double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
+            double distance = cdMap.getIfAbsentPut(newSortedObjective.get(j), 0.0);
             distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
                     newSortedObjective.get(j - 1).getObjectives()[obj]) * inverseDelta;
             cdMap.put(newSortedObjective.get(j), distance);
