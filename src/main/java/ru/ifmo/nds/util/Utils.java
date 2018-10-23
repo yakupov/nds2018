@@ -257,11 +257,11 @@ public class Utils {
                                         ArrayList<IIndividual<T>> newSortedObjective) {
         cdMap.put(newSortedObjective.get(0), Double.POSITIVE_INFINITY);
         cdMap.put(newSortedObjective.get(newSortedObjective.size() - 1), Double.POSITIVE_INFINITY);
+        final double inverseDelta = 1 / (maxs.get(obj) - mins.get(obj));
         for (int j = 1; j < newSortedObjective.size() - 1; j++) {
             double distance = cdMap.getOrDefault(newSortedObjective.get(j), 0.0);
             distance += (newSortedObjective.get(j + 1).getObjectives()[obj] -
-                    newSortedObjective.get(j - 1).getObjectives()[obj])
-                    / (maxs.get(obj) - mins.get(obj));
+                    newSortedObjective.get(j - 1).getObjectives()[obj]) * inverseDelta;
             cdMap.put(newSortedObjective.get(j), distance);
         }
     }
