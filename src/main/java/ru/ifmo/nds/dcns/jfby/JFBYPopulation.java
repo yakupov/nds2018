@@ -114,21 +114,16 @@ public class JFBYPopulation<T> implements IManagedPopulation<T> {
             final List<IIndividual<T>> individuals = Collections.singletonList(new FitnessAndCdIndividual<>(
                     addend.getObjectives(), Double.POSITIVE_INFINITY,
                     addend.getPayload()));
-            final List<List<IIndividual<T>>> sortedObjectives = new ArrayList<>();
-            for (int i = 0; i < addend.getObjectives().length; ++i) {
-                sortedObjectives.add(individuals);
-            }
             final JFBYNonDominationLevel<T> level = new JFBYNonDominationLevel<>(
                     sorter,
-                    individuals,
-                    sortedObjectives
+                    individuals
             );
             nonDominationLevels.add(level);
         } else {
             List<IIndividual<T>> addends = Collections.singletonList(addend);
             int i = rank;
             int prevSize = -1;
-            List<List<IIndividual<T>>> prevSortedObjectives = null;
+            SortedObjectives<T> prevSortedObjectives = null;
             while (!addends.isEmpty() && i < nonDominationLevels.size()) {
                 ++lastNumberOfMovements;
                 lastSumOfMovements += addends.size();

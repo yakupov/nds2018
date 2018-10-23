@@ -30,7 +30,7 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
     private final List<IIndividual<T>> members;
 
     @Nonnull
-    private final List<List<IIndividual<T>>> sortedObjectives;
+    private final SortedObjectives<T> sortedObjectives;
 
     /**
      * Inefficient (O(NlogN) CD recalc) new level construction
@@ -41,25 +41,25 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
                                   @Nonnull List<IIndividual<T>> members) {
         this.sorter = sorter;
         if (!members.isEmpty()) {
-            final CrowdingDistanceData<T> cdd = Utils.calculateCrowdingDistances(members.get(0).getObjectives().length, members);
+            final CrowdingDistanceData<T> cdd = SortedObjectives.calculateCrowdingDistances(members.get(0).getObjectives().length, members);
             this.members = cdd.getIndividuals();
             this.sortedObjectives = cdd.getSortedObjectives();
         } else {
             this.members = Collections.emptyList();
-            this.sortedObjectives = Collections.emptyList();
+            this.sortedObjectives = SortedObjectives.empty(0);
         }
     }
 
     public JFBYNonDominationLevel(@Nonnull JFB2014 sorter,
                                   @Nonnull List<IIndividual<T>> members,
-                                  @Nonnull List<List<IIndividual<T>>> sortedObjectives) {
-        for (List<IIndividual<T>> so : sortedObjectives) {
-            assert so != null;
-            assert so.size() == members.size();
-        }
+                                  @Nonnull SortedObjectives<T> sortedObjectives) {
+//        for (List<IIndividual<T>> so : sortedObjectives) {
+//            assert so != null;
+//            assert so.size() == members.size();
+//        }
         this.sorter = sorter;
         this.members = Collections.unmodifiableList(members);
-        this.sortedObjectives = Collections.unmodifiableList(sortedObjectives);
+        this.sortedObjectives = sortedObjectives;
     }
 
     @Override
@@ -69,15 +69,15 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
     }
 
     @Nonnull
-    public List<List<IIndividual<T>>> getSortedObjectives() {
+    public SortedObjectives<T> getSortedObjectives() {
         return sortedObjectives;
     }
 
     @Override
     public MemberAdditionResult<T, JFBYNonDominationLevel<T>> addMembers(@Nonnull List<IIndividual<T>> addends) {
-        for (List<IIndividual<T>> ls : sortedObjectives) {
-            assert ls.size() == members.size();
-        }
+//        for (List<IIndividual<T>> ls : sortedObjectives) {
+//            assert ls.size() == members.size();
+//        }
 
         final int[] ranks = new int[members.size()];
         final RankedPopulation<IIndividual<T>> rp = sorter.addRankedMembers(members, ranks, addends, 0);
@@ -105,27 +105,27 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
                 currLevel
         );
 
-        try {
-            assert cdd.getIndividuals().size() == currLevel.size();
-
-            for (List<IIndividual<T>> iIndividuals : cdd.getSortedObjectives()) {
-                assert iIndividuals.size() == cdd.getIndividuals().size();
-
-                if (iIndividuals.size() != currLevel.size()) {
-                    System.err.println(iIndividuals);
-                    System.err.println(currLevel);
-                    throw new AssertionError("Ass failed");
-                }
-            }
-        } catch (Throwable t) {
-            System.err.println(cdd.getIndividuals());
-            System.err.println(cdd.getSortedObjectives());
-            System.err.println(addends);
-            System.err.println(members);
-            System.err.println(sortedObjectives);
-            System.err.println(currLevel);
-            throw t;
-        }
+//        try {
+//            assert cdd.getIndividuals().size() == currLevel.size();
+//
+//            for (List<IIndividual<T>> iIndividuals : cdd.getSortedObjectives()) {
+//                assert iIndividuals.size() == cdd.getIndividuals().size();
+//
+//                if (iIndividuals.size() != currLevel.size()) {
+//                    System.err.println(iIndividuals);
+//                    System.err.println(currLevel);
+//                    throw new AssertionError("Ass failed");
+//                }
+//            }
+//        } catch (Throwable t) {
+//            System.err.println(cdd.getIndividuals());
+//            System.err.println(cdd.getSortedObjectives());
+//            System.err.println(addends);
+//            System.err.println(members);
+//            System.err.println(sortedObjectives);
+//            System.err.println(currLevel);
+//            throw t;
+//        }
 
         return new MemberAdditionResult<>(
                 nextLevel,

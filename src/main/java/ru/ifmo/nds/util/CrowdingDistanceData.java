@@ -1,15 +1,16 @@
 package ru.ifmo.nds.util;
 
 import ru.ifmo.nds.IIndividual;
+import ru.ifmo.nds.dcns.jfby.SortedObjectives;
 
 import java.util.List;
 import java.util.Objects;
 
 public class CrowdingDistanceData<T> {
     private final List<IIndividual<T>> individuals; //Sorted lexicographically
-    private final List<List<IIndividual<T>>> sortedObjectives; //Sorted only by corresponding objective
+    private final SortedObjectives<T> sortedObjectives; //Sorted only by corresponding objective
 
-    public CrowdingDistanceData(List<IIndividual<T>> individuals, List<List<IIndividual<T>>> sortedObjectives) {
+    public CrowdingDistanceData(List<IIndividual<T>> individuals, SortedObjectives<T> sortedObjectives) {
         this.individuals = individuals;
         this.sortedObjectives = sortedObjectives;
     }
@@ -18,7 +19,7 @@ public class CrowdingDistanceData<T> {
         return individuals;
     }
 
-    public List<List<IIndividual<T>>> getSortedObjectives() {
+    public SortedObjectives<T> getSortedObjectives() {
         return sortedObjectives;
     }
 
