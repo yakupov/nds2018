@@ -9,14 +9,16 @@ import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.FitnessAndCdIndividual;
 import ru.itmo.nds.util.RankedPopulation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 public abstract class ManagedPopulationCorrectnessTest {
-    protected abstract IManagedPopulation constructPopulation(int dimensionsCount);
+    protected abstract IManagedPopulation<Object> constructPopulation(int dimensionsCount);
 
     @Test
     public void test1() {
@@ -29,19 +31,19 @@ public abstract class ManagedPopulationCorrectnessTest {
 
         final int[] ranks = new int[]{0, 1, 0, 1, 1, 2, 1, 0, 2, 2, 0, 3};
 
-        final IManagedPopulation pop = constructPopulation(3);
+        final IManagedPopulation<Object> pop = constructPopulation(3);
 
-        final IIndividual[] testData = new IIndividual[testDataArr.length];
-        for (int i = 0; i < testData.length; ++i) {
-            testData[i] = new FitnessAndCdIndividual(testDataArr[i], 0, null);
+        final List<IIndividual<Object>> testData = new ArrayList<>(testDataArr.length);
+        for (double[] d : testDataArr) {
+            testData.add(new FitnessAndCdIndividual<>(d, 0, null));
         }
-        for (IIndividual individual: testData) {
+        for (IIndividual<Object> individual: testData) {
             pop.addIndividual(individual);
         }
 
         final RankedPopulation rp = pop.toRankedPopulation();
 
-        Assert.assertArrayEquals(testData, rp.getPop());
+        Assert.assertArrayEquals(testData.toArray(), rp.getPop());
         Assert.assertArrayEquals(ranks, rp.getRanks());
     }
 
@@ -180,13 +182,14 @@ public abstract class ManagedPopulationCorrectnessTest {
     private void compareIncrementalWithGenerational(final double[][] testDataArr) {
         final IIndividual[] testData = new IIndividual[testDataArr.length];
         for (int i = 0; i < testData.length; ++i) {
-            testData[i] = new FitnessAndCdIndividual(testDataArr[i], null);
+            testData[i] = new FitnessAndCdIndividual<>(testDataArr[i], null);
         }
         final JFB2014 jfb2014 = new JFB2014();
         final int[] ranks = jfb2014.performNds(testData);
 
         final IManagedPopulation pop = constructPopulation(testDataArr[0].length);
         for (IIndividual individual: testData) {
+            //noinspection unchecked
             pop.addIndividual(individual);
         }
 
@@ -206,27 +209,27 @@ public abstract class ManagedPopulationCorrectnessTest {
     public void test5() {
         final IManagedPopulation<Object> pop = constructPopulation(3);
 
-        pop.addIndividual(new FitnessAndCdIndividual(new double[]{0.1669424402868558, 0.41123196219828895, 17.98980401569634}, null));
+        pop.addIndividual(new FitnessAndCdIndividual<>(new double[]{0.1669424402868558, 0.41123196219828895, 17.98980401569634}, null));
         assertEquals(1, pop.getSnapshot().getLevels().size());
         assertEquals(1, pop.getSnapshot().getLevels().get(0).getMembers().size());
 
-        pop.addIndividual(new FitnessAndCdIndividual(new double[]{0.917634913762617, 0.9778742572218526, 16.9584650345564}, null));
+        pop.addIndividual(new FitnessAndCdIndividual<>(new double[]{0.917634913762617, 0.9778742572218526, 16.9584650345564}, null));
         assertEquals(1, pop.getSnapshot().getLevels().size());
         assertEquals(2, pop.getSnapshot().getLevels().get(0).getMembers().size());
 
         final double[] p3 = {0.8868046448171203, 0.5802605728140939, 18.793267306998885};
-        pop.addIndividual(new FitnessAndCdIndividual(p3, null));
+        pop.addIndividual(new FitnessAndCdIndividual<>(p3, null));
         assertEquals(2, pop.getSnapshot().getLevels().size());
         assertEquals(2, pop.getSnapshot().getLevels().get(0).getMembers().size());
         assertEquals(1, pop.getSnapshot().getLevels().get(1).getMembers().size());
         assertArrayEquals(p3, pop.getSnapshot().getLevels().get(1).getMembers().get(0).getObjectives(), 0.0);
 
-        pop.addIndividual(new FitnessAndCdIndividual(new double[]{0.40892166575913325, 0.026280324605388206, 21.255937437050655}, null));
+        pop.addIndividual(new FitnessAndCdIndividual<>(new double[]{0.40892166575913325, 0.026280324605388206, 21.255937437050655}, null));
         assertEquals(2, pop.getSnapshot().getLevels().size());
         assertEquals(3, pop.getSnapshot().getLevels().get(0).getMembers().size());
         assertEquals(1, pop.getSnapshot().getLevels().get(1).getMembers().size());
 
-        pop.addIndividual(new FitnessAndCdIndividual(new double[]{0.6305014841432228, 0.5990732774500678, 18.139060039219498}, null));
+        pop.addIndividual(new FitnessAndCdIndividual<>(new double[]{0.6305014841432228, 0.5990732774500678, 18.139060039219498}, null));
         assertEquals(2, pop.getSnapshot().getLevels().size());
         assertEquals(3, pop.getSnapshot().getLevels().get(0).getMembers().size());
         assertEquals(2, pop.getSnapshot().getLevels().get(1).getMembers().size());

@@ -5,7 +5,7 @@ import ru.ifmo.nds.dcns.jfby.JFBYPopulation;
 
 public class JFBYCorrectnessTest extends ManagedPopulationCorrectnessTest {
     @Override
-    protected IManagedPopulation constructPopulation(int dimensionsCount) {
-        return new JFBYPopulation(Long.MAX_VALUE);
+    protected IManagedPopulation<Object> constructPopulation(int dimensionsCount) {
+        return new JFBYPopulation<>(Long.MAX_VALUE);
     }
 }

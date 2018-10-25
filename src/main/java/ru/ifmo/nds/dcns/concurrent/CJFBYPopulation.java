@@ -90,7 +90,7 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
     public PopulationSnapshot<T> getSnapshot() {
         int sizeSnapshot = 0;
         final Object[] levels = nonDominationLevels.toArray();
-        final List<INonDominationLevel<T>> levelsSnapshot = Arrays.asList(new INonDominationLevel[levels.length]);
+        @SuppressWarnings("unchecked") final List<INonDominationLevel<T>> levelsSnapshot = Arrays.asList(new INonDominationLevel[levels.length]);
         for (int j = levels.length - 1; j >= 0; --j) { //Reverse iterator because elements may only move to latter levels, and we do not want any collisions
             @SuppressWarnings("unchecked") final AtomicReference<LevelRef> levelRefRef =
                     (AtomicReference<LevelRef>) levels[j];
@@ -247,13 +247,17 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                         final Set<IIndividual<T>> actualRemovals = new HashSet<>();
                         for (int i = 0; i < allMembers.length; ++i) {
                             if (ranks[i] == 0) {
+                                //noinspection unchecked
                                 newCurrLevelMembers.add(allMembers[i]);
                                 if (addendsSet.contains(allMembers[i])) {
+                                    //noinspection unchecked
                                     actualAddends.add(allMembers[i]);
                                 }
                             } else {
+                                //noinspection unchecked
                                 nextAddends.add(allMembers[i]);
                                 if (!addendsSet.contains(allMembers[i])) {
+                                    //noinspection unchecked
                                     actualRemovals.add(allMembers[i]);
                                 }
                             }
@@ -267,7 +271,7 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                                 newCurrLevelMembers
                         );
 
-                        final JFBYNonDominationLevel newLevel = new JFBYNonDominationLevel(sorter, cdd.getIndividuals(), cdd.getSortedObjectives());
+                        final JFBYNonDominationLevel<T> newLevel = new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives());
                         if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
                             if (firstModifiedLevelRank == null) {
                                 firstModifiedLevelRank = rank;
@@ -295,6 +299,7 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                     while (levels.size() <= ranks[i]) {
                         levels.add(new ArrayList<>());
                     }
+                    //noinspection unchecked
                     levels.get(ranks[i]).add(members[i]);
                 }
                 for (List<IIndividual<T>> level : levels) {
@@ -334,8 +339,10 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                     final List<IIndividual<T>> nextAddends = new ArrayList<>();
                     for (int i = 0; i < allMembers.length; ++i) {
                         if (ranks[i] == 0) {
+                            //noinspection unchecked
                             newCurrLevelMembers.add(allMembers[i]);
                         } else {
+                            //noinspection unchecked
                             nextAddends.add(allMembers[i]);
                         }
                     }

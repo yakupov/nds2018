@@ -1,12 +1,14 @@
 package ru.ifmo.nds.dcns.jfby;
 
 import ru.ifmo.nds.IIndividual;
+import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("unused")
@@ -30,7 +32,13 @@ public class TotalSyncJFBYPopulation<T> extends JFBYPopulation<T> {
     @Nonnull
     @Override
     public synchronized PopulationSnapshot<T> getSnapshot() {
-        return super.getSnapshot();
+        final List<INonDominationLevel<T>> levels = new ArrayList<>();
+        int size = 0;
+        for (INonDominationLevel<T> level : super.getSnapshot().getLevels()) {
+            levels.add(level.copy());
+            size += level.getMembers().size();
+        }
+        return new PopulationSnapshot<>(levels, size);
     }
 
     @Nullable

@@ -94,9 +94,6 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
             }
         }
 
-        //assert nextLevel.size() == new HashSet<>(nextLevel).size();
-        //assert currLevel.size() == new HashSet<>(currLevel).size();
-
         final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
                 addends.get(0).getObjectives().length,
                 sortedObjectives,
@@ -104,28 +101,6 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
                 nextLevelSet,
                 currLevel
         );
-
-        try {
-            assert cdd.getIndividuals().size() == currLevel.size();
-
-            for (List<IIndividual<T>> iIndividuals : cdd.getSortedObjectives()) {
-                assert iIndividuals.size() == cdd.getIndividuals().size();
-
-                if (iIndividuals.size() != currLevel.size()) {
-                    System.err.println(iIndividuals);
-                    System.err.println(currLevel);
-                    throw new AssertionError("Ass failed");
-                }
-            }
-        } catch (Throwable t) {
-            System.err.println(cdd.getIndividuals());
-            System.err.println(cdd.getSortedObjectives());
-            System.err.println(addends);
-            System.err.println(members);
-            System.err.println(sortedObjectives);
-            System.err.println(currLevel);
-            throw t;
-        }
 
         return new MemberAdditionResult<>(
                 nextLevel,
