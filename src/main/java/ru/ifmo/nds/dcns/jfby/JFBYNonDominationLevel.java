@@ -3,8 +3,8 @@ package ru.ifmo.nds.dcns.jfby;
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.util.CrowdingDistanceData;
-import ru.ifmo.nds.util.Utils;
+import ru.ifmo.nds.impl.FitnessAndCdIndividual;
+import ru.ifmo.nds.util.SortedObjectives;
 import ru.itmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
@@ -13,9 +13,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static ru.itmo.nds.util.ComparisonUtils.dominates;
@@ -30,7 +28,7 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
     private final List<IIndividual<T>> members;
 
     @Nonnull
-    private final List<List<IIndividual<T>>> sortedObjectives;
+    private final SortedObjectives<IIndividual<T>, T> sortedObjectives;
 
     /**
      * Inefficient (O(NlogN) CD recalc) new level construction
@@ -41,25 +39,21 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
                                   @Nonnull List<IIndividual<T>> members) {
         this.sorter = sorter;
         if (!members.isEmpty()) {
-            final CrowdingDistanceData<T> cdd = Utils.calculateCrowdingDistances(members.get(0).getObjectives().length, members);
-            this.members = cdd.getIndividuals();
-            this.sortedObjectives = cdd.getSortedObjectives();
+            final int dim = members.get(0).getObjectives().length;
+            this.sortedObjectives = SortedObjectives.create(dim, members, (i, d) -> new FitnessAndCdIndividual<>(i.getObjectives(), d, i.getPayload()));
+            this.members = sortedObjectives.getLexSortedPop();
         } else {
             this.members = Collections.emptyList();
-            this.sortedObjectives = Collections.emptyList();
+            this.sortedObjectives = SortedObjectives.empty(0);
         }
     }
 
     public JFBYNonDominationLevel(@Nonnull JFB2014 sorter,
                                   @Nonnull List<IIndividual<T>> members,
-                                  @Nonnull List<List<IIndividual<T>>> sortedObjectives) {
-        for (List<IIndividual<T>> so : sortedObjectives) {
-            assert so != null;
-            assert so.size() == members.size();
-        }
+                                  @Nonnull SortedObjectives<IIndividual<T>, T> sortedObjectives) {
         this.sorter = sorter;
         this.members = Collections.unmodifiableList(members);
-        this.sortedObjectives = Collections.unmodifiableList(sortedObjectives);
+        this.sortedObjectives = sortedObjectives;
     }
 
     @Override
@@ -69,42 +63,31 @@ public class JFBYNonDominationLevel<T> implements INonDominationLevel<T> {
     }
 
     @Nonnull
-    public List<List<IIndividual<T>>> getSortedObjectives() {
+    public SortedObjectives<IIndividual<T>, T> getSortedObjectives() {
         return sortedObjectives;
     }
 
     @Override
     public MemberAdditionResult<T, JFBYNonDominationLevel<T>> addMembers(@Nonnull List<IIndividual<T>> addends) {
-        for (List<IIndividual<T>> ls : sortedObjectives) {
-            assert ls.size() == members.size();
-        }
-
         final int[] ranks = new int[members.size()];
         final RankedPopulation<IIndividual<T>> rp = sorter.addRankedMembers(members, ranks, addends, 0);
-        final ArrayList<IIndividual<T>> currLevel = new ArrayList<>(ranks.length + addends.size());
         final ArrayList<IIndividual<T>> nextLevel = new ArrayList<>(ranks.length);
-        final Set<IIndividual<T>> nextLevelSet = new HashSet<>(ranks.length);
 
         for (int i = 0; i < rp.getPop().length; ++i) {
-            if (rp.getRanks()[i] == 0) {
-                currLevel.add(rp.getPop()[i]);
-            } else {
+            if (rp.getRanks()[i] != 0) {
                 nextLevel.add(rp.getPop()[i]);
-                nextLevelSet.add(rp.getPop()[i]);
             }
         }
 
-        final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
-                addends.get(0).getObjectives().length,
-                sortedObjectives,
+        final SortedObjectives<IIndividual<T>, T> nso = sortedObjectives.update(
                 addends,
-                nextLevelSet,
-                currLevel
+                nextLevel,
+                (i, d) -> new FitnessAndCdIndividual<>(i.getObjectives(), d, i.getPayload())
         );
 
         return new MemberAdditionResult<>(
                 nextLevel,
-                new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives())
+                new JFBYNonDominationLevel<>(sorter, nso.getLexSortedPop(), nso)
         );
     }
 

@@ -6,16 +6,12 @@ import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.impl.FitnessAndCdIndividual;
+import ru.ifmo.nds.util.SortedObjectives;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static ru.ifmo.nds.util.Utils.getWorstCDIndividual;
 import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
@@ -111,24 +107,17 @@ public class JFBYPopulation<T> implements IManagedPopulation<T> {
         if (presentIndividuals.putIfAbsent(addend, true) != null) {
             return rank;
         } else if (rank >= nonDominationLevels.size()) {
-            final List<IIndividual<T>> individuals = Collections.singletonList(new FitnessAndCdIndividual<>(
-                    addend.getObjectives(), Double.POSITIVE_INFINITY,
-                    addend.getPayload()));
-            final List<List<IIndividual<T>>> sortedObjectives = new ArrayList<>();
-            for (int i = 0; i < addend.getObjectives().length; ++i) {
-                sortedObjectives.add(individuals);
-            }
+            final List<IIndividual<T>> individuals = Collections.singletonList(addend);
             final JFBYNonDominationLevel<T> level = new JFBYNonDominationLevel<>(
                     sorter,
-                    individuals,
-                    sortedObjectives
+                    individuals
             );
             nonDominationLevels.add(level);
         } else {
             List<IIndividual<T>> addends = Collections.singletonList(addend);
             int i = rank;
             int prevSize = -1;
-            List<List<IIndividual<T>>> prevSortedObjectives = null;
+            SortedObjectives<IIndividual<T>, T> prevSortedObjectives = null;
             while (!addends.isEmpty() && i < nonDominationLevels.size()) {
                 ++lastNumberOfMovements;
                 lastSumOfMovements += addends.size();

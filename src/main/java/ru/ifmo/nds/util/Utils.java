@@ -40,21 +40,13 @@ public class Utils {
     public static <T> JFBYNonDominationLevel<T> removeIndividualFromLevel(@Nonnull final JFBYNonDominationLevel<T> lastLevel,
                                                                           @Nonnull final IIndividual<T> removedIndividual,
                                                                           @Nonnull final JFB2014 sorter) {
-        final List<IIndividual<T>> newMembers = new ArrayList<>(lastLevel.getMembers().size());
-        for (IIndividual<T> individual : lastLevel.getMembers()) {
-            if (individual != removedIndividual) {
-                newMembers.add(individual);
-            }
-        }
-
-        final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
-                removedIndividual.getObjectives().length,
-                lastLevel.getSortedObjectives(),
+        final SortedObjectives<IIndividual<T>, T> nso = lastLevel.getSortedObjectives().update(
                 Collections.emptyList(),
-                Collections.singleton(removedIndividual),
-                newMembers);
+                Collections.singletonList(removedIndividual),
+                (i, d) -> new FitnessAndCdIndividual<>(i.getObjectives(), d, i.getPayload())
+        );
 
-        return new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives());
+        return new JFBYNonDominationLevel<>(sorter, nso.getLexSortedPop(), nso);
     }
 
     public static <T> IIndividual<T> getWorstCDIndividual(@Nonnull final INonDominationLevel<T> lastLevel) {

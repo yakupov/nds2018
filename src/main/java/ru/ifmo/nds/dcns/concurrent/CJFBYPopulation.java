@@ -6,20 +6,14 @@ import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.ifmo.nds.util.CrowdingDistanceData;
-import ru.ifmo.nds.util.Utils;
+import ru.ifmo.nds.impl.FitnessAndCdIndividual;
+import ru.ifmo.nds.util.AscLexSortComparator;
+import ru.ifmo.nds.util.SortedObjectives;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,9 +23,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
-import static ru.ifmo.nds.util.Utils.getWorstCDIndividual;
-import static ru.ifmo.nds.util.Utils.lexCompare;
-import static ru.ifmo.nds.util.Utils.removeIndividualFromLevel;
+import static ru.ifmo.nds.util.Utils.*;
 
 @ThreadSafe
 public class CJFBYPopulation<T> implements IManagedPopulation<T> {
@@ -244,7 +236,7 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                         final List<IIndividual<T>> nextAddends = new ArrayList<>();
                         final Set<IIndividual<T>> addendsSet = new HashSet<>(addends);
                         final List<IIndividual<T>> actualAddends = new ArrayList<>(addends.size());
-                        final Set<IIndividual<T>> actualRemovals = new HashSet<>();
+                        final List<IIndividual<T>> actualRemovals = new ArrayList<>();
                         for (int i = 0; i < allMembers.length; ++i) {
                             if (ranks[i] == 0) {
                                 //noinspection unchecked
@@ -263,15 +255,13 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                             }
                         }
 
-                        final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(
-                                originalAddend.getObjectives().length,
-                                level.getSortedObjectives(),
+                        final SortedObjectives<IIndividual<T>, T> nso = level.getSortedObjectives().update(
                                 actualAddends,
                                 actualRemovals,
-                                newCurrLevelMembers
+                                (i, d) -> new FitnessAndCdIndividual<>(i.getObjectives(), d, i.getPayload())
                         );
 
-                        final JFBYNonDominationLevel<T> newLevel = new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives());
+                        final JFBYNonDominationLevel<T> newLevel = new JFBYNonDominationLevel<>(sorter, nso.getLexSortedPop(), nso);
                         if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
                             if (firstModifiedLevelRank == null) {
                                 firstModifiedLevelRank = rank;
@@ -348,7 +338,7 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                     }
 
                     final Set<IIndividual<T>> addendsSet = new HashSet<>(addends);
-                    final Set<IIndividual<T>> removed = new HashSet<>();
+                    final List<IIndividual<T>> removed = new ArrayList<>(nextAddends.size());
                     for (IIndividual<T> nextAddend : nextAddends) {
                         if (addendsSet.contains(nextAddend)) {
                             addendsSet.remove(nextAddend);
@@ -356,9 +346,18 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                             removed.add(nextAddend);
                         }
                     }
-                    final CrowdingDistanceData<T> cdd = Utils.recalcCrowdingDistances(addend.getObjectives().length,
-                            levelRef.level.getSortedObjectives(), new ArrayList<>(addendsSet), removed, newCurrLevelMembers);
-                    final JFBYNonDominationLevel<T> newLevel = new JFBYNonDominationLevel<>(sorter, cdd.getIndividuals(), cdd.getSortedObjectives());
+
+                    final List<IIndividual<T>> addendsList = new ArrayList<>(addendsSet.size());
+                    addendsList.addAll(addends);
+                    addendsList.sort(AscLexSortComparator.getInstance());
+
+                    final SortedObjectives<IIndividual<T>, T> nso = levelRef.level.getSortedObjectives().update(
+                            addendsList,
+                            removed,
+                            (i, d) -> new FitnessAndCdIndividual<>(i.getObjectives(), d, i.getPayload())
+                    );
+
+                    final JFBYNonDominationLevel<T> newLevel = new JFBYNonDominationLevel<>(sorter, nso.getLexSortedPop(), nso);
                     if (nonDominationLevels.get(rank).compareAndSet(levelRef, new LevelRef(time.incrementAndGet(), newLevel))) {
                         if (firstModifiedLevelRank == null) {
                             firstModifiedLevelRank = rank;
