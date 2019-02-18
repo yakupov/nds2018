@@ -4,7 +4,7 @@ import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.PopulationSnapshot;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
-import ru.itmo.nds.util.RankedPopulation;
+import ru.ifmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

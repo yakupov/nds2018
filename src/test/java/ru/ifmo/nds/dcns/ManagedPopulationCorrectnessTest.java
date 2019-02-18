@@ -7,7 +7,7 @@ import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.IManagedPopulation;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.FitnessAndCdIndividual;
-import ru.itmo.nds.util.RankedPopulation;
+import ru.ifmo.nds.util.RankedPopulation;
 
 import java.util.ArrayList;
 import java.util.Arrays;

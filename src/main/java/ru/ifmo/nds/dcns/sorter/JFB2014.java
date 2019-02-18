@@ -2,14 +2,14 @@ package ru.ifmo.nds.dcns.sorter;
 
 import ru.ifmo.nds.IIndividual;
 import ru.ifmo.nds.util.AscLexSortComparator;
-import ru.ifmo.nds.util.QuickSelect;
-import ru.itmo.nds.util.RankedPopulation;
+import ru.ifmo.nds.util.median.QuickSelect;
+import ru.ifmo.nds.util.RankedPopulation;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.*;
 
 import static ru.ifmo.nds.util.Utils.lexCompare;
-import static ru.itmo.nds.util.ComparisonUtils.dominates;
+import static ru.ifmo.nds.util.Utils.dominates;
 
 /**
  * Another implementation of a NDS, proposed in the following paper:

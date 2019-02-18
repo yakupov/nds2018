@@ -111,10 +111,6 @@ public class SortedObjectives<T extends IIndividual<P>, P> {
         final int[] removedIndices = new int[toRemove.size()];
         final int[] addendIndices = new int[toAdd.size()];
         while (newLexSortedPop.size() < targetSize) {
-//            if (iRem < toRemove.size() && iPop < lexSortedPop.size()) {
-//                System.err.println("Testing " + lexSortedPop.get(iPop) + " and " + toRemove.get(iRem));
-//            }
-
             if (iRem < toRemove.size() && iPop < lexSortedPop.size() &&
                     lexSortedPop.get(iPop).equals(toRemove.get(iRem))) {
                 removedIndices[iRem++] = iPop++;
@@ -198,32 +194,7 @@ public class SortedObjectives<T extends IIndividual<P>, P> {
                     }
                 }
             }
-
-//            System.err.println("recalc ind");
-//            System.err.println(Arrays.toString(newIndex));
-//            System.err.println(Arrays.toString(oldIndex));
-//            System.err.println(Arrays.toString(removedIndices));
-//            System.err.println(Arrays.toString(addendIndices));
-//            System.err.println(Arrays.toString(indexCorrector));
-//            System.err.println(lexSortedPop);
-//            System.err.println(toRemove);
-//            System.err.println(toAdd);
         }
-
-//        System.err.println(targetSize);
-//        System.err.println(newLexSortedPop);
-//        System.err.println(newCoordSorted);
-//        for (double[] doubles : newCoordSorted) {
-//            System.err.println(Arrays.toString(doubles));
-//        }
-//        System.err.println(newCorrespIndex);
-//        for (int[] ints : coordCorrespIndex) {
-//            System.err.println(Arrays.toString(ints));
-//        }
-//        System.err.println(Arrays.toString(indexCorrector));
-//        for (int[] ints : newCorrespIndex) {
-//            System.err.println(Arrays.toString(ints));
-//        }
 
         final List<T> rs = calculateCD(cdUpdater, targetSize, newLexSortedPop, newCoordSorted, newCorrespIndex);
 
@@ -239,8 +210,6 @@ public class SortedObjectives<T extends IIndividual<P>, P> {
         for (int obj = 0; obj < dim; ++obj) {
             final double[] coord = newCoordSorted.get(obj);
             final int[] index = newCorrespIndex.get(obj);
-//            System.err.println(targetSize);
-//            System.err.println(Arrays.toString(index));
 
             cd[index[0]] = Double.POSITIVE_INFINITY;
             cd[index[index.length - 1]] = Double.POSITIVE_INFINITY;

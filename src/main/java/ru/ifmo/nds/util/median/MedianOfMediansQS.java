@@ -1,4 +1,4 @@
-package ru.ifmo.nds.util;
+package ru.ifmo.nds.util.median;
 
 import javax.annotation.concurrent.ThreadSafe;
 

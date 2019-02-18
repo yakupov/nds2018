@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static ru.itmo.nds.util.ComparisonUtils.dominates;
+import static ru.ifmo.nds.util.Utils.dominates;
 
 /**
  * Can perform NDS only on a sorted population with one new point (or a contiguous set of points with the same rank)

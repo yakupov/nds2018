@@ -5,7 +5,7 @@ import ru.ifmo.nds.INonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.FitnessAndCdIndividual;
 import ru.ifmo.nds.util.SortedObjectives;
-import ru.itmo.nds.util.RankedPopulation;
+import ru.ifmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.Immutable;
@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static ru.itmo.nds.util.ComparisonUtils.dominates;
+import static ru.ifmo.nds.util.Utils.dominates;
 
 @ThreadSafe
 @Immutable

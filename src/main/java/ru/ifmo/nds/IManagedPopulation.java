@@ -2,7 +2,7 @@ package ru.ifmo.nds;
 
 import ru.ifmo.nds.impl.RankedIndividual;
 import ru.ifmo.nds.util.AscLexSortComparator;
-import ru.itmo.nds.util.RankedPopulation;
+import ru.ifmo.nds.util.RankedPopulation;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -119,7 +119,7 @@ public interface IManagedPopulation<T> extends Cloneable {
                 }
             }
 
-            sortedRanks = ru.itmo.nds.util.RankedIndividual.sortRanksForLexSortedPopulation(ranks, pop, IIndividual::getObjectives);
+            sortedRanks = ru.ifmo.nds.util.RankedIndividual.sortRanksForLexSortedPopulation(ranks, pop, IIndividual::getObjectives);
 
             Arrays.sort(pop, AscLexSortComparator.getInstance());
         } else {

@@ -8,7 +8,7 @@ import ru.ifmo.nds.dcns.jfby.JFBYNonDominationLevel;
 import ru.ifmo.nds.dcns.sorter.IncrementalJFB;
 import ru.ifmo.nds.dcns.sorter.JFB2014;
 import ru.ifmo.nds.impl.FitnessAndCdIndividual;
-import ru.ifmo.nds.util.QuickSelect;
+import ru.ifmo.nds.util.median.QuickSelect;
 import ru.ifmo.nds.util.SortedObjectives;
 
 import javax.annotation.Nonnull;
