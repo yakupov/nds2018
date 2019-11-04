@@ -230,9 +230,15 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                             addends = mar.getEvictedMembers();
                         }
                     } else {
+//                        final IIndividual[] addendsArray = addends.toArray(new IIndividual[addends.size()]);
+//                        final int[] addendsRanks = sorter.performNds(addendsArray);
+//                        final long diffRanksCount = Arrays.stream(addendsRanks).distinct().count();
+//                        if (diffRanksCount > 1) {
+//                            System.err.println("Diff ranks #" + diffRanksCount);
+//                        }
+
                         final IIndividual[] allMembers = lexMerge(addends, level.getMembers());
                         final int[] ranks = sorter.performNds(allMembers);
-                        final List<IIndividual<T>> newCurrLevelMembers = new ArrayList<>();
                         final List<IIndividual<T>> nextAddends = new ArrayList<>();
                         final Set<IIndividual<T>> addendsSet = new HashSet<>(addends);
                         final List<IIndividual<T>> actualAddends = new ArrayList<>(addends.size());
@@ -240,7 +246,6 @@ public class CJFBYPopulation<T> implements IManagedPopulation<T> {
                         for (int i = 0; i < allMembers.length; ++i) {
                             if (ranks[i] == 0) {
                                 //noinspection unchecked
-                                newCurrLevelMembers.add(allMembers[i]);
                                 if (addendsSet.contains(allMembers[i])) {
                                     //noinspection unchecked
                                     actualAddends.add(allMembers[i]);

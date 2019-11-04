@@ -183,23 +183,46 @@ public class LevelLockJFBYPopulation<T> implements IManagedPopulation<T> {
         return size.get();
     }
 
+    private int determineRank(IIndividual<T> point, int rankHint) {
+        if (rankHint < 0) {
+            final List<? extends INonDominationLevel<T>> ndLayers = getSnapshot().getLevels();
+
+            int l = 0;
+            int r = ndLayers.size() - 1;
+            int lastNonDominating = r + 1;
+            while (l <= r) {
+                final int test = (l + r) / 2;
+                if (!ndLayers.get(test).dominatedByAnyPointOfThisLayer(point)) {
+                    lastNonDominating = test;
+                    r = test - 1;
+                } else {
+                    l = test + 1;
+                }
+            }
+
+            return lastNonDominating;
+        } else {
+            return rankHint + 1;
+        }
+    }
+
     @Override
     public int addIndividual(@Nonnull IIndividual<T> addend) {
         if (presentIndividuals.putIfAbsent(addend, true) != null) {
             return determineRank(addend);
         }
 
-        int rank;
-        while (true) {
-            rank = determineRank(addend);
+        int rank = -1;
+        while (true) { //TODO: under remove level lock? ReentrantReadWriteLock?
+            rank = determineRank(addend, rank);
             final Lock lock = acquireLock(rank);
             try {
-                if (rank < nonDominationLevels.size() &&
-                        nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
-                    lock.unlock();
-                } else {
-                    // System.out.println(Thread.currentThread().getName() + ": all=" + addLevelLock + ", rl=" + lock);
+                if (rank >= nonDominationLevels.size() && lock == addLevelLock) {
                     break;
+                } else if (!nonDominationLevels.get(rank).dominatedByAnyPointOfThisLayer(addend)) {
+                    break;
+                } else {
+                    lock.unlock();
                 }
             } catch (ArrayIndexOutOfBoundsException ignored) {
                 lock.unlock();
